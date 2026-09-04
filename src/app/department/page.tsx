@@ -3,6 +3,7 @@ import { VisitStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { StatusBadge } from "@/components/status-badge";
 import { VisitActions } from "@/components/visit-actions";
+import { QueryFilter } from "@/components/query-filter";
 
 const time = new Intl.DateTimeFormat("en", {
   hour: "numeric",
@@ -48,20 +49,11 @@ export default async function DepartmentQueue({
           <h2>
             {departments.find((item) => item.id === departmentId)?.name ?? "Department"} visitors
           </h2>
-          <form>
-            <select
-              name="department"
-              className="filter"
-              defaultValue={departmentId}
-              onChange={(e) => e.currentTarget.form?.requestSubmit()}
-            >
-              {departments.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
-          </form>
+          <QueryFilter
+            name="department"
+            value={departmentId}
+            options={departments.map((item) => ({ value: item.id, label: item.name }))}
+          />
         </div>
         <div style={{ padding: 18 }} className="queue">
           {visits.length ? (

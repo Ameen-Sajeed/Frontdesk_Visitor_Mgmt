@@ -4,6 +4,7 @@ import { getDashboardVisits, getDepartmentsWithHosts } from "@/lib/visits";
 import { RegisterVisitor } from "@/components/register-visitor";
 import { StatusBadge } from "@/components/status-badge";
 import { VisitActions } from "@/components/visit-actions";
+import { QueryFilter } from "@/components/query-filter";
 
 const date = new Intl.DateTimeFormat("en", {
   hour: "numeric",
@@ -55,16 +56,17 @@ export default async function Dashboard({
       <section className="panel">
         <div className="toolbar">
           <h2>Visitor list</h2>
-          <form>
-            <select className="filter" name="status" defaultValue={status ?? "ALL"}>
-              <option value="ALL">All statuses</option>
-              {Object.values(VisitStatus).map((s) => (
-                <option value={s} key={s}>
-                  {s.replaceAll("_", " ")}
-                </option>
-              ))}
-            </select>
-          </form>
+          <QueryFilter
+            name="status"
+            value={status ?? "ALL"}
+            options={[
+              { value: "ALL", label: "All statuses" },
+              ...Object.values(VisitStatus).map((item) => ({
+                value: item,
+                label: item.replaceAll("_", " "),
+              })),
+            ]}
+          />
         </div>
         {visits.length ? (
           <table>
