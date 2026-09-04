@@ -3,9 +3,129 @@ import { useState } from "react";
 
 type Department = { id: string; name: string; employees: { id: string; name: string }[] };
 export function RegisterVisitor({ departments }: { departments: Department[] }) {
-  const [open, setOpen] = useState(false); const [departmentId, setDepartmentId] = useState(""); const [error, setError] = useState(""); const [saving, setSaving] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [departmentId, setDepartmentId] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
   const selected = departments.find((item) => item.id === departmentId);
-  async function submit(event: React.FormEvent<HTMLFormElement>) { event.preventDefault(); setSaving(true); setError(""); const form = new FormData(event.currentTarget); const payload = Object.fromEntries(form); try { const res = await fetch("/api/visits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); const result = await res.json(); if (!res.ok) throw new Error(result.error); setOpen(false); window.location.reload(); } catch (err) { setError(err instanceof Error ? err.message : "Could not register the visitor."); } finally { setSaving(false); } }
-  return <><button className="primary" onClick={() => setOpen(true)}>+ Register visitor</button>{open && <div className="overlay" role="dialog" aria-modal="true" aria-label="Register visitor"><div className="modal"><div className="modal-head"><div><h2>Register a visitor</h2><p className="small">Their department will receive an approval request.</p></div><button className="icon-button" onClick={() => setOpen(false)} aria-label="Close">×</button></div><form className="form" onSubmit={submit}><div className="grid"><Field label="Full name" name="fullName" required /><Field label="Phone number" name="phone" required /><Field label="Email address" name="email" type="email" /><Field label="Company name" name="company" /><Field label="Purpose of visit" name="purpose" required full /><div className="field"><label>Department</label><select name="departmentId" required value={departmentId} onChange={(e) => setDepartmentId(e.target.value)}><option value="">Select department</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}</select></div><div className="field"><label>Person to meet</label><select name="hostId" required disabled={!selected}><option value="">Select host</option>{selected?.employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.name}</option>)}</select></div><div className="field"><label>Visit type</label><select name="type" defaultValue="WALK_IN"><option value="WALK_IN">Walk-in</option><option value="APPOINTMENT">Appointment</option></select></div></div>{error && <p className="error" style={{ marginTop: 15 }}>{error}</p>}<div className="form-actions"><button className="secondary" type="button" onClick={() => setOpen(false)}>Cancel</button><button className="primary" disabled={saving}>{saving ? "Registering…" : "Register visitor"}</button></div></form></div></div>}</>;
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    const form = new FormData(event.currentTarget);
+    const payload = Object.fromEntries(form);
+    try {
+      const res = await fetch("/api/visits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error);
+      setOpen(false);
+      window.location.reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not register the visitor.");
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <>
+      <button className="primary" onClick={() => setOpen(true)}>
+        + Register visitor
+      </button>
+      {open && (
+        <div className="overlay" role="dialog" aria-modal="true" aria-label="Register visitor">
+          <div className="modal">
+            <div className="modal-head">
+              <div>
+                <h2>Register a visitor</h2>
+                <p className="small">Their department will receive an approval request.</p>
+              </div>
+              <button className="icon-button" onClick={() => setOpen(false)} aria-label="Close">
+                ×
+              </button>
+            </div>
+            <form className="form" onSubmit={submit}>
+              <div className="grid">
+                <Field label="Full name" name="fullName" required />
+                <Field label="Phone number" name="phone" required />
+                <Field label="Email address" name="email" type="email" />
+                <Field label="Company name" name="company" />
+                <Field label="Purpose of visit" name="purpose" required full />
+                <div className="field">
+                  <label>Department</label>
+                  <select
+                    name="departmentId"
+                    required
+                    value={departmentId}
+                    onChange={(e) => setDepartmentId(e.target.value)}
+                  >
+                    <option value="">Select department</option>
+                    {departments.map((department) => (
+                      <option key={department.id} value={department.id}>
+                        {department.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="field">
+                  <label>Person to meet</label>
+                  <select name="hostId" required disabled={!selected}>
+                    <option value="">Select host</option>
+                    {selected?.employees.map((employee) => (
+                      <option key={employee.id} value={employee.id}>
+                        {employee.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="field">
+                  <label>Visit type</label>
+                  <select name="type" defaultValue="WALK_IN">
+                    <option value="WALK_IN">Walk-in</option>
+                    <option value="APPOINTMENT">Appointment</option>
+                  </select>
+                </div>
+              </div>
+              {error && (
+                <p className="error" style={{ marginTop: 15 }}>
+                  {error}
+                </p>
+              )}
+              <div className="form-actions">
+                <button className="secondary" type="button" onClick={() => setOpen(false)}>
+                  Cancel
+                </button>
+                <button className="primary" disabled={saving}>
+                  {saving ? "Registering…" : "Register visitor"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
+  );
 }
-function Field({ label, name, required, type = "text", full = false }: { label: string; name: string; required?: boolean; type?: string; full?: boolean }) { return <div className={`field ${full ? "full" : ""}`}><label>{label}</label><input name={name} type={type} required={required} /></div>; }
+function Field({
+  label,
+  name,
+  required,
+  type = "text",
+  full = false,
+}: {
+  label: string;
+  name: string;
+  required?: boolean;
+  type?: string;
+  full?: boolean;
+}) {
+  return (
+    <div className={`field ${full ? "full" : ""}`}>
+      <label>{label}</label>
+      <input name={name} type={type} required={required} />
+    </div>
+  );
+}
