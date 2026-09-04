@@ -1,19 +1,43 @@
 "use client";
 import { useState } from "react";
+import { visitorRegistrationSchema } from "@/lib/validation";
 
 type Department = { id: string; name: string; employees: { id: string; name: string }[] };
 export function RegisterVisitor({ departments }: { departments: Department[] }) {
   const [open, setOpen] = useState(false);
   const [departmentId, setDepartmentId] = useState("");
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const selected = departments.find((item) => item.id === departmentId);
+
+  function clearFieldError(name: string) {
+    setFieldErrors((current) => {
+      const { [name]: removed, ...remaining } = current;
+      return remaining;
+    });
+  }
+
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setSaving(true);
     setError("");
     const form = new FormData(event.currentTarget);
     const payload = Object.fromEntries(form);
+
+    const validation = visitorRegistrationSchema.safeParse(payload);
+    if (!validation.success) {
+      const errors = Object.fromEntries(
+        Object.entries(validation.error.flatten().fieldErrors).map(([name, messages]) => [
+          name,
+          messages?.[0] ?? "Please check this field.",
+        ]),
+      );
+      setFieldErrors(errors);
+      return;
+    }
+
+    setSaving(true);
+    setFieldErrors({});
     try {
       const res = await fetch("/api/visits", {
         method: "POST",
@@ -47,20 +71,55 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                 ×
               </button>
             </div>
-            <form className="form" onSubmit={submit}>
+            <form className="form" onSubmit={submit} noValidate>
               <div className="grid">
-                <Field label="Full name" name="fullName" required />
-                <Field label="Phone number" name="phone" required />
-                <Field label="Email address" name="email" type="email" />
-                <Field label="Company name" name="company" />
-                <Field label="Purpose of visit" name="purpose" required full />
+                <Field
+                  label="Full name"
+                  name="fullName"
+                  required
+                  error={fieldErrors.fullName}
+                  onChange={clearFieldError}
+                />
+                <Field
+                  label="Phone number"
+                  name="phone"
+                  required
+                  error={fieldErrors.phone}
+                  onChange={clearFieldError}
+                />
+                <Field
+                  label="Email address"
+                  name="email"
+                  type="email"
+                  error={fieldErrors.email}
+                  onChange={clearFieldError}
+                />
+                <Field
+                  label="Company name"
+                  name="company"
+                  error={fieldErrors.company}
+                  onChange={clearFieldError}
+                />
+                <Field
+                  label="Purpose of visit"
+                  name="purpose"
+                  required
+                  full
+                  error={fieldErrors.purpose}
+                  onChange={clearFieldError}
+                />
                 <div className="field">
                   <label>Department</label>
                   <select
                     name="departmentId"
                     required
                     value={departmentId}
-                    onChange={(e) => setDepartmentId(e.target.value)}
+                    onChange={(e) => {
+                      setDepartmentId(e.target.value);
+                      clearFieldError("departmentId");
+                    }}
+                    aria-invalid={Boolean(fieldErrors.departmentId)}
+                    aria-describedby={fieldErrors.departmentId ? "departmentId-error" : undefined}
                   >
                     <option value="">Select department</option>
                     {departments.map((department) => (
@@ -69,10 +128,23 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                       </option>
                     ))}
                   </select>
+                  {fieldErrors.departmentId && (
+                    <p className="error" id="departmentId-error">
+                      {fieldErrors.departmentId}
+                    </p>
+                  )}
                 </div>
                 <div className="field">
                   <label>Person to meet</label>
-                  <select name="hostId" required disabled={!selected}>
+                  <select
+                    key={departmentId}
+                    name="hostId"
+                    required
+                    disabled={!selected}
+                    onChange={() => clearFieldError("hostId")}
+                    aria-invalid={Boolean(fieldErrors.hostId)}
+                    aria-describedby={fieldErrors.hostId ? "hostId-error" : undefined}
+                  >
                     <option value="">Select host</option>
                     {selected?.employees.map((employee) => (
                       <option key={employee.id} value={employee.id}>
@@ -80,6 +152,11 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                       </option>
                     ))}
                   </select>
+                  {fieldErrors.hostId && (
+                    <p className="error" id="hostId-error">
+                      {fieldErrors.hostId}
+                    </p>
+                  )}
                 </div>
                 <div className="field">
                   <label>Visit type</label>
@@ -115,17 +192,33 @@ function Field({
   required,
   type = "text",
   full = false,
+  error,
+  onChange,
 }: {
   label: string;
   name: string;
   required?: boolean;
   type?: string;
   full?: boolean;
+  error?: string;
+  onChange: (name: string) => void;
 }) {
   return (
     <div className={`field ${full ? "full" : ""}`}>
       <label>{label}</label>
-      <input name={name} type={type} required={required} />
+      <input
+        name={name}
+        type={type}
+        required={required}
+        onChange={() => onChange(name)}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? `${name}-error` : undefined}
+      />
+      {error && (
+        <p className="error" id={`${name}-error`}>
+          {error}
+        </p>
+      )}
     </div>
   );
 }
