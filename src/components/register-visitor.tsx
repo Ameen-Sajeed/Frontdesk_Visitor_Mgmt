@@ -115,6 +115,7 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                 <Field
                   label="Phone number"
                   name="phone"
+                  type="number"
                   required
                   error={fieldErrors.phone}
                   onChange={clearFieldError}
