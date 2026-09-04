@@ -1,4 +1,5 @@
 import { PrismaClient, VisitStatus, VisitType } from "@prisma/client";
+import { normalizePhoneForLookup } from "../src/lib/phone";
 
 const prisma = new PrismaClient();
 
@@ -24,10 +25,12 @@ async function main() {
     });
   if (await prisma.visit.count()) return;
   const host = await prisma.employee.findUniqueOrThrow({ where: { email: "aisha@company.test" } });
+  const phone = "+971 50 123 4567";
   const visitor = await prisma.visitor.create({
     data: {
       fullName: "Layla Hassan",
-      phone: "+971 50 123 4567",
+      phone,
+      phoneLookupKey: normalizePhoneForLookup(phone),
       email: "layla@example.com",
       company: "Northstar Labs",
     },

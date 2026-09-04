@@ -21,7 +21,7 @@ export default async function Dashboard({
   const [visits, departments] = await Promise.all([
     getDashboardVisits(status),
     getDepartmentsWithHosts(),
-,  ]);
+  ]);
   const waiting = visits.filter((v) => v.status === VisitStatus.WAITING_APPROVAL).length;
   const activeStatuses: VisitStatus[] = [VisitStatus.CHECKED_IN, VisitStatus.IN_MEETING];
   const active = visits.filter((v) => activeStatuses.includes(v.status)).length;

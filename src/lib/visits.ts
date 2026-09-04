@@ -1,5 +1,6 @@
 import { VisitStatus, type Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { normalizePhoneForLookup } from "@/lib/phone";
 import { visitorRegistrationSchema, type VisitorRegistration } from "@/lib/validation";
 
 export const visitInclude = {
@@ -35,6 +36,7 @@ export async function createVisit(input: VisitorRegistration) {
       data: {
         fullName: data.fullName,
         phone: data.phone,
+        phoneLookupKey: normalizePhoneForLookup(data.phone),
         email: data.email || null,
         company: data.company || null,
       },

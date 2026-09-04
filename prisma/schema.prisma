@@ -41,13 +41,16 @@ model Employee {
 }
 
 model Visitor {
-  id        String   @id @default(cuid())
-  fullName  String
-  phone     String
-  email     String?
-  company   String?
-  createdAt DateTime @default(now())
-  visits    Visit[]
+  id             String   @id @default(cuid())
+  fullName       String
+  phone          String
+  phoneLookupKey String   @default("")
+  email          String?
+  company        String?
+  createdAt      DateTime @default(now())
+  visits         Visit[]
+
+  @@index([phoneLookupKey])
 }
 
 model Visit {
