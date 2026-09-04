@@ -3,6 +3,8 @@ import { useState } from "react";
 import { visitorRegistrationSchema } from "@/lib/validation";
 
 type Department = { id: string; name: string; employees: { id: string; name: string }[] };
+type FieldName = keyof typeof visitorRegistrationSchema.shape;
+
 export function RegisterVisitor({ departments }: { departments: Department[] }) {
   const [open, setOpen] = useState(false);
   const [departmentId, setDepartmentId] = useState("");
@@ -11,10 +13,32 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
   const [saving, setSaving] = useState(false);
   const selected = departments.find((item) => item.id === departmentId);
 
+  function resetModal() {
+    setOpen(false);
+    setDepartmentId("");
+    setError("");
+    setFieldErrors({});
+  }
+
   function clearFieldError(name: string) {
     setFieldErrors((current) => {
       const { [name]: removed, ...remaining } = current;
       return remaining;
+    });
+  }
+
+  function validateField(name: FieldName, value: string) {
+    const validation = visitorRegistrationSchema.partial().safeParse({ [name]: value });
+    const message = validation.success
+      ? undefined
+      : validation.error.flatten().fieldErrors[name]?.[0];
+
+    setFieldErrors((current) => {
+      if (!message) {
+        const { [name]: removed, ...remaining } = current;
+        return remaining;
+      }
+      return { ...current, [name]: message };
     });
   }
 
@@ -56,7 +80,14 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
   }
   return (
     <>
-      <button className="primary" onClick={() => setOpen(true)}>
+      <button
+        className="primary"
+        onClick={() => {
+          setFieldErrors({});
+          setError("");
+          setOpen(true);
+        }}
+      >
         + Register visitor
       </button>
       {open && (
@@ -67,7 +98,7 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                 <h2>Register a visitor</h2>
                 <p className="small">Their department will receive an approval request.</p>
               </div>
-              <button className="icon-button" onClick={() => setOpen(false)} aria-label="Close">
+              <button className="icon-button" onClick={resetModal} aria-label="Close">
                 ×
               </button>
             </div>
@@ -79,6 +110,7 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                   required
                   error={fieldErrors.fullName}
                   onChange={clearFieldError}
+                  onBlur={validateField}
                 />
                 <Field
                   label="Phone number"
@@ -86,6 +118,7 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                   required
                   error={fieldErrors.phone}
                   onChange={clearFieldError}
+                  onBlur={validateField}
                 />
                 <Field
                   label="Email address"
@@ -93,12 +126,14 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                   type="email"
                   error={fieldErrors.email}
                   onChange={clearFieldError}
+                  onBlur={validateField}
                 />
                 <Field
                   label="Company name"
                   name="company"
                   error={fieldErrors.company}
                   onChange={clearFieldError}
+                  onBlur={validateField}
                 />
                 <Field
                   label="Purpose of visit"
@@ -107,6 +142,7 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                   full
                   error={fieldErrors.purpose}
                   onChange={clearFieldError}
+                  onBlur={validateField}
                 />
                 <div className="field">
                   <label>Department</label>
@@ -118,6 +154,7 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                       setDepartmentId(e.target.value);
                       clearFieldError("departmentId");
                     }}
+                    onBlur={(e) => validateField("departmentId", e.target.value)}
                     aria-invalid={Boolean(fieldErrors.departmentId)}
                     aria-describedby={fieldErrors.departmentId ? "departmentId-error" : undefined}
                   >
@@ -142,6 +179,7 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                     required
                     disabled={!selected}
                     onChange={() => clearFieldError("hostId")}
+                    onBlur={(e) => validateField("hostId", e.target.value)}
                     aria-invalid={Boolean(fieldErrors.hostId)}
                     aria-describedby={fieldErrors.hostId ? "hostId-error" : undefined}
                   >
@@ -172,7 +210,7 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                 </p>
               )}
               <div className="form-actions">
-                <button className="secondary" type="button" onClick={() => setOpen(false)}>
+                <button className="secondary" type="button" onClick={resetModal}>
                   Cancel
                 </button>
                 <button className="primary" disabled={saving}>
@@ -194,6 +232,7 @@ function Field({
   full = false,
   error,
   onChange,
+  onBlur,
 }: {
   label: string;
   name: string;
@@ -202,6 +241,7 @@ function Field({
   full?: boolean;
   error?: string;
   onChange: (name: string) => void;
+  onBlur: (name: FieldName, value: string) => void;
 }) {
   return (
     <div className={`field ${full ? "full" : ""}`}>
@@ -211,6 +251,7 @@ function Field({
         type={type}
         required={required}
         onChange={() => onChange(name)}
+        onBlur={(event) => onBlur(name as FieldName, event.target.value)}
         aria-invalid={Boolean(error)}
         aria-describedby={error ? `${name}-error` : undefined}
       />
