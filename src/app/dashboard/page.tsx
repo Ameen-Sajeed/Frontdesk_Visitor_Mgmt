@@ -9,6 +9,7 @@ import { QueryFilter } from "@/components/query-filter";
 import { DateFilter } from "@/components/date-filter";
 import { Pagination } from "@/components/pagination";
 import { VisitDetailsModal } from "@/components/visit-details-modal";
+import { RealtimeListener } from "@/components/realtime-listener";
 import { formatDateTime } from "@/lib/timing";
 
 export default async function Dashboard({
@@ -34,6 +35,7 @@ export default async function Dashboard({
   return (
     <main className="shell">
       <UserNav user={session} />
+      <RealtimeListener user={session} />
       <section className="hero">
         <div>
           <p className="eyebrow">Reception workspace</p>

@@ -11,6 +11,7 @@ import { SearchFilter } from "@/components/search-filter";
 import { Pagination } from "@/components/pagination";
 import { DepartmentTabs } from "@/components/department-tabs";
 import { VisitDetailsModal } from "@/components/visit-details-modal";
+import { RealtimeListener } from "@/components/realtime-listener";
 import { formatDateTime } from "@/lib/timing";
 
 export default async function DepartmentQueue({
@@ -62,6 +63,7 @@ export default async function DepartmentQueue({
   return (
     <main className="shell">
       <UserNav user={session} />
+      <RealtimeListener user={session} />
       <section className="hero">
         <div>
           <p className="eyebrow">Department workspace</p>

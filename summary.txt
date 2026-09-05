@@ -591,3 +591,57 @@ Keep the main table clean; use a details/modal view if needed.
 * Preserve existing authentication, role-based access, visitor approval, and real-time functionality.
 
 Finally, run Prisma validation, TypeScript checks, and build, and fix any errors introduced.
+
+
+
+Now let’s implement the **real-time notification flow**.
+
+Keep it simple, clean, and modular. Use **WebSockets/Socket.IO** as a small reusable real-time module that fits into the existing architecture. Do not introduce unnecessary complexity.
+
+### Required flow
+
+**1. Reception → Department**
+
+* When a receptionist registers a visitor for a department, the assigned department user should receive a real-time notification immediately.
+* Show a minimal popup/toast with the latest visitor/request.
+* From the notification itself, the department user should be able to **Approve / Reject**.
+
+**2. Department → Reception**
+
+* When the department user approves or rejects the request, the receptionist should receive the update **immediately in real time**, without refreshing.
+
+**3. Keep both dashboards in sync**
+Any relevant visitor update made by Reception should automatically reflect in the Department Dashboard, including:
+
+* Pending visitors
+* Visitor status
+* Visitor history
+* Visitor details/timings
+
+Likewise, department actions should immediately reflect on the Reception Dashboard.
+
+### Important
+
+* No polling or manual page refresh.
+* Minimize latency and avoid unnecessary socket events.
+* Keep PostgreSQL/Prisma as the **source of truth**; WebSockets should only handle real-time updates/events.
+* Use authenticated users and department-specific socket rooms/channels where appropriate.
+* Prevent users from receiving notifications/data belonging to other departments.
+* Handle reconnects gracefully.
+* Reuse the existing API and database logic instead of duplicating business logic inside the socket layer.
+
+Please inspect the current architecture first, then implement this as a **small, reusable real-time module** without changing unrelated parts of the application.
+
+Finally, verify the complete flow:
+
+```text
+Reception registers visitor
+        ↓
+Department receives notification
+        ↓
+Approve / Reject
+        ↓
+Reception receives real-time update
+        ↓
+Both dashboards + history stay synchronized
+```

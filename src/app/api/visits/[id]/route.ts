@@ -1,14 +1,27 @@
 import { NextResponse } from "next/server";
 import { VisitStatus } from "@prisma/client";
-import { changeVisitStatus } from "@/lib/visits";
+import { changeVisitStatus, visitInclude } from "@/lib/visits";
+import { prisma } from "@/lib/prisma";
+import { broadcastVisitStatusChanged } from "@/lib/socket-emitter";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const { status } = await request.json();
     if (!Object.values(VisitStatus).includes(status)) throw new Error("Invalid visit status.");
-    const visit = await changeVisitStatus(id, status);
-    return NextResponse.json(visit);
+    
+    const updatedVisit = await changeVisitStatus(id, status);
+
+    const visitWithDetails = await prisma.visit.findUnique({
+      where: { id: updatedVisit.id },
+      include: visitInclude,
+    });
+
+    if (visitWithDetails) {
+      broadcastVisitStatusChanged(visitWithDetails);
+    }
+
+    return NextResponse.json(visitWithDetails || updatedVisit);
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to update visit." },
