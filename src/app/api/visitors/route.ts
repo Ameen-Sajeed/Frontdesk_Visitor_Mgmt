@@ -7,7 +7,7 @@ export async function GET(request: Request) {
   const lookupKey = normalizePhoneForLookup(phone);
   const digitsOnly = lookupKey.replace(/\D/g, "");
 
-  if (lookupKey.length < 4) return NextResponse.json([]);
+  if (lookupKey.length < 3) return NextResponse.json([]);
 
   const visitors = await prisma.visitor.findMany({
     where: {

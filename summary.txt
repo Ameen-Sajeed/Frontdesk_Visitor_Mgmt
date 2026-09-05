@@ -1,0 +1,18 @@
+Now what I need is we have to auto fill the existing users when they came for the 2nd time visit . 
+1. how to do it ? 
+My suggestions - based on phone number or email , we can because it is unique identifier . or tell me the best standard approach here . 
+Implementation pattern should be like 
+when the user types the phone number it should be show like a dropdown and populate it . 
+that's approach I guess . also in requirement they mentioned about phone number we can go with that apporoach Itself . 
+
+
+there is a small issue with this . 
+a. only when 4 digits are entered the suggestions are coming . make it from 1st digit enter itslef . 
+do this with deboucing and other standard approaches , auto-suggesting concept . 
+b. also when user enters the number once he chooses the full number is not filled there , whatever we entered is coming 
+and validation error is also throwing . 
+
+2. Next one is the communication from the department section . it should be seamless and we have to give live 
+updates when the department user does any kind of actions to the receptionist . can we add a login for the 
+department users . same goes with the receptionist too , when a receptionist add a visitor to the particular department user 
+he should recieve small notification or alert , what is clean and standard with this application .

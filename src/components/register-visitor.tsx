@@ -35,7 +35,7 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
 
   useEffect(() => {
     const phone = values.phone.trim();
-    if (phone.replace(/\D/g, "").length < 4) {
+    if (phone.replace(/\D/g, "").length < 3) {
       setMatches([]);
       return;
     }
