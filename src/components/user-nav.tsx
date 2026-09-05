@@ -40,13 +40,13 @@ export function UserNav({ user }: UserNavProps) {
         </Link>
       </div>
 
-      <div className="nav-links">
+      {/* <div className="nav-links">
         {isDepartmentUser ? (
           <Link href="/department">My Visitors</Link>
         ) : (
           <Link href="/dashboard">Reception</Link>
         )}
-      </div>
+      </div> */}
 
       {user && (
         <div className="user-profile" style={{ display: "flex", alignItems: "center", gap: 12 }}>

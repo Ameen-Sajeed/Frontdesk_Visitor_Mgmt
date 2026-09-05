@@ -20,6 +20,7 @@ enum VisitStatus {
   CHECKED_IN
   IN_MEETING
   CHECKED_OUT
+  LEFT_WITHOUT_MEETING
 }
 
 enum Role {
@@ -75,24 +76,28 @@ model Visitor {
 }
 
 model Visit {
-  id              String      @id @default(cuid())
-  visitorId       String
-  departmentId    String
-  hostId          String
-  purpose         String
-  type            VisitType
-  status          VisitStatus @default(REGISTERED)
-  priority        Int         @default(0)
-  registeredAt    DateTime    @default(now())
-  approvalAskedAt DateTime?
-  decidedAt       DateTime?
-  checkedInAt     DateTime?
-  meetingStartedAt DateTime?
-  checkedOutAt    DateTime?
-  visitor         Visitor     @relation(fields: [visitorId], references: [id], onDelete: Cascade)
-  department      Department  @relation(fields: [departmentId], references: [id])
-  host            Employee    @relation("VisitHost", fields: [hostId], references: [id])
-  history         VisitStatusHistory[]
+  id                String      @id @default(cuid())
+  visitorId         String
+  departmentId      String
+  hostId            String
+  purpose           String
+  type              VisitType
+  status            VisitStatus @default(REGISTERED)
+  priority          Int         @default(0)
+  rejectionReason   String?
+  leftReason        String?
+  leftAt            DateTime?
+  delayedNotifiedAt DateTime?
+  registeredAt      DateTime    @default(now())
+  approvalAskedAt   DateTime?
+  decidedAt         DateTime?
+  checkedInAt       DateTime?
+  meetingStartedAt  DateTime?
+  checkedOutAt      DateTime?
+  visitor           Visitor     @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+  department        Department  @relation(fields: [departmentId], references: [id])
+  host              Employee    @relation("VisitHost", fields: [hostId], references: [id])
+  history           VisitStatusHistory[]
 
   @@index([departmentId, status, priority, approvalAskedAt])
   @@index([status, registeredAt])
@@ -104,7 +109,13 @@ model VisitStatusHistory {
   status    VisitStatus
   createdAt DateTime    @default(now())
   note      String?
-  visit      Visit       @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  visit     Visit       @relation(fields: [visitId], references: [id], onDelete: Cascade)
 
   @@index([visitId, createdAt])
+}
+
+model AppConfig {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }

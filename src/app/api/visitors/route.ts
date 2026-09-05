@@ -17,7 +17,7 @@ export async function GET(request: Request) {
         { phone: { contains: phone, mode: "insensitive" } },
       ],
     },
-    select: { id: true, fullName: true, phone: true, email: true, company: true },
+    select: { id: true, fullName: true, phone: true, email: true, company: true, designation: true },
     take: 5,
     orderBy: { createdAt: "desc" },
   });

@@ -164,16 +164,41 @@ export async function createVisit(input: VisitorRegistration) {
   if (!host) throw new Error("The selected host does not belong to that department.");
 
   return prisma.$transaction(async (tx) => {
-    const visitor = await tx.visitor.create({
-      data: {
-        fullName: data.fullName,
-        phone: data.phone,
-        phoneLookupKey: normalizePhoneForLookup(data.phone),
-        email: data.email || null,
-        company: data.company || null,
-        designation: data.designation || null,
+    const lookupKey = normalizePhoneForLookup(data.phone);
+
+    // Reuse existing visitor if matching phone or lookupKey exists
+    let visitor = await tx.visitor.findFirst({
+      where: {
+        OR: [
+          { phoneLookupKey: lookupKey },
+          { phone: data.phone.trim() },
+        ],
       },
     });
+
+    if (visitor) {
+      visitor = await tx.visitor.update({
+        where: { id: visitor.id },
+        data: {
+          fullName: data.fullName,
+          email: data.email || visitor.email,
+          company: data.company || visitor.company,
+          designation: data.designation || visitor.designation,
+        },
+      });
+    } else {
+      visitor = await tx.visitor.create({
+        data: {
+          fullName: data.fullName,
+          phone: data.phone,
+          phoneLookupKey: lookupKey,
+          email: data.email || null,
+          company: data.company || null,
+          designation: data.designation || null,
+        },
+      });
+    }
+
     const visit = await tx.visit.create({
       data: {
         visitorId: visitor.id,
@@ -196,32 +221,51 @@ export async function createVisit(input: VisitorRegistration) {
 }
 
 const transitions: Partial<Record<VisitStatus, VisitStatus[]>> = {
-  WAITING_APPROVAL: [VisitStatus.APPROVED, VisitStatus.REJECTED],
-  APPROVED: [VisitStatus.CHECKED_IN],
-  CHECKED_IN: [VisitStatus.IN_MEETING, VisitStatus.CHECKED_OUT],
+  REGISTERED: [VisitStatus.WAITING_APPROVAL, VisitStatus.LEFT_WITHOUT_MEETING],
+  WAITING_APPROVAL: [VisitStatus.APPROVED, VisitStatus.REJECTED, VisitStatus.LEFT_WITHOUT_MEETING],
+  APPROVED: [VisitStatus.CHECKED_IN, VisitStatus.LEFT_WITHOUT_MEETING],
+  CHECKED_IN: [VisitStatus.IN_MEETING, VisitStatus.CHECKED_OUT, VisitStatus.LEFT_WITHOUT_MEETING],
   IN_MEETING: [VisitStatus.CHECKED_OUT],
 };
 
-export async function changeVisitStatus(id: string, status: VisitStatus) {
+export async function changeVisitStatus(
+  id: string,
+  status: VisitStatus,
+  extraData?: { rejectionReason?: string; leftReason?: string },
+) {
   const current = await prisma.visit.findUniqueOrThrow({ where: { id } });
   if (!transitions[current.status]?.includes(status))
     throw new Error(
       `Cannot move a ${current.status.toLowerCase()} visit to ${status.toLowerCase()}.`,
     );
+
   const now = new Date();
   const timestamps: Prisma.VisitUpdateInput =
-    status === VisitStatus.APPROVED || status === VisitStatus.REJECTED
+    status === VisitStatus.APPROVED
       ? { decidedAt: now }
-      : status === VisitStatus.CHECKED_IN
-        ? { checkedInAt: now }
-        : status === VisitStatus.IN_MEETING
-          ? { meetingStartedAt: now }
-          : status === VisitStatus.CHECKED_OUT
-            ? { checkedOutAt: now }
-            : {};
+      : status === VisitStatus.REJECTED
+        ? { decidedAt: now, rejectionReason: extraData?.rejectionReason || null }
+        : status === VisitStatus.CHECKED_IN
+          ? { checkedInAt: now }
+          : status === VisitStatus.IN_MEETING
+            ? { meetingStartedAt: now }
+            : status === VisitStatus.CHECKED_OUT
+              ? { checkedOutAt: now }
+              : status === VisitStatus.LEFT_WITHOUT_MEETING
+                ? { leftAt: now, leftReason: extraData?.leftReason || "Visitor left without meeting" }
+                : {};
+
   return prisma.$transaction(async (tx) => {
     const visit = await tx.visit.update({ where: { id }, data: { status, ...timestamps } });
-    await tx.visitStatusHistory.create({ data: { visitId: id, status } });
+
+    const note =
+      status === VisitStatus.REJECTED && extraData?.rejectionReason
+        ? `Rejected: ${extraData.rejectionReason}`
+        : status === VisitStatus.LEFT_WITHOUT_MEETING && extraData?.leftReason
+          ? `Left without meeting: ${extraData.leftReason}`
+          : `Status changed to ${status.replaceAll("_", " ")}`;
+
+    await tx.visitStatusHistory.create({ data: { visitId: id, status, note } });
     return visit;
   });
 }

@@ -7,10 +7,11 @@ import { broadcastVisitStatusChanged } from "@/lib/socket-emitter";
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { status } = await request.json();
+    const body = await request.json();
+    const { status, rejectionReason, leftReason } = body;
     if (!Object.values(VisitStatus).includes(status)) throw new Error("Invalid visit status.");
     
-    const updatedVisit = await changeVisitStatus(id, status);
+    const updatedVisit = await changeVisitStatus(id, status, { rejectionReason, leftReason });
 
     const visitWithDetails = await prisma.visit.findUnique({
       where: { id: updatedVisit.id },

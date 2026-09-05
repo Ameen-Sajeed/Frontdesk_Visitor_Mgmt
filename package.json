@@ -17,12 +17,15 @@
     "@prisma/client": "^6.8.0",
     "bcryptjs": "^3.0.3",
     "jose": "^6.2.11",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "libphonenumber-js": "^1.13.12",
     "next": "^15.3.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
+    "xlsx": "^0.18.5",
     "zod": "^3.24.4"
   },
   "devDependencies": {

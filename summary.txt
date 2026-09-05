@@ -645,3 +645,150 @@ Reception receives real-time update
         ↓
 Both dashboards + history stay synchronized
 ```
+
+After review, implement the following fixes and improvements. First inspect the existing visitor, visit, autocomplete, dashboard, API, Prisma schema, and export/filter logic. Reuse the current architecture and do not rewrite working parts.
+
+### 1. Prevent duplicate visitors
+
+When a visitor enters a phone number and selects an existing autocomplete suggestion, the system is currently creating the same visitor twice.
+
+Fix the logic:
+
+* A Visitor should be created only once.
+* If the phone number already belongs to an existing visitor, reuse that Visitor record.
+* Every new visit should create a new Visit record linked to the existing Visitor.
+* Do not create duplicate Visitor records for the same person.
+* Handle both autocomplete selection and manual phone-number entry consistently.
+* Enforce this safely at the backend/database level, not only in the frontend.
+
+### 2. Fix autocomplete suggestion UX
+
+Currently, after selecting a suggestion, the suggestion dropdown remains open and only closes after clicking again.
+
+Fix this so:
+
+* Selecting a suggestion immediately closes the dropdown.
+* Selected visitor details populate instantly.
+* Phone, name, company, designation, etc. are populated correctly.
+* No stale suggestions remain visible.
+* Handle click, focus, keyboard navigation, and outside-click properly.
+* Make the interaction seamless and professional.
+
+### 3. Auto-populate designation
+
+When an existing visitor is selected/autocompleted, also auto-populate their saved designation.
+
+Verify that designation is correctly:
+
+* Stored in the Visitor record.
+* Returned by the autocomplete API.
+* Populated in the Register Visitor form.
+* Preserved when creating the new Visit.
+
+### 4. "Left Without Meeting" — Wait Threshold & Reception Notification
+
+Implement this as a configurable wait-time workflow.
+
+Requirements:
+
+* Configure a maximum/threshold waiting time for a visitor, for example **15, 30, or 45 minutes**.
+* The threshold should be configurable by the organization/admin rather than hardcoded.
+* When a visitor has been waiting beyond the configured threshold without the meeting starting, the system should automatically identify the visit as **delayed / waiting too long**.
+* The Receptionist should receive a real-time notification such as:
+  **"Visitor [Name] has been waiting for 30 minutes. The meeting has not started."**
+* Reception should then be able to take an action:
+
+  * Continue waiting
+  * Mark as **Left Without Meeting**
+  * Select a configurable reason, such as:
+
+    * Staff unavailable
+    * Staff delayed
+    * Visitor decided to leave
+    * Other
+* If the visitor actually leaves, Reception can mark the visit as **Left Without Meeting** and save the reason.
+* Store the outcome, reason, and relevant timestamp against the Visit.
+* Show this information in Visitor History and reports.
+* The threshold notification should work through the existing real-time WebSocket/Socket.IO system without requiring page refresh or polling.
+* Avoid repeatedly notifying the receptionist for the same visit. Handle the threshold event only once unless explicitly configured otherwise.
+
+The goal is:
+
+**Visitor checks in → Waiting time increases → Configured threshold reached → Reception is automatically notified → Reception decides whether to continue waiting or mark "Left Without Meeting" → Outcome is stored and visible in history/reports.**
+
+Make the threshold configurable and keep the implementation modular so it can be changed later without modifying the core visit logic.
+
+
+### 5. Rejection comments
+
+When a Department user rejects a visitor request:
+
+* Allow the Department user to enter an optional/appropriate rejection comment/reason.
+* Store it against the Visit.
+* Reception should be able to see the rejection reason/comment.
+* Show it in visitor details/history where appropriate.
+* Keep the existing real-time rejection notification flow working.
+
+### 6. Better date filters
+
+Improve the existing date filter for both Reception and Department dashboards.
+
+Provide options such as:
+
+* All time
+* Last 30 days
+* Custom range
+
+  * From date
+  * To date
+
+Filters must work together with:
+
+* Status
+* Search
+* Pagination
+* Department restrictions
+
+Filtering must happen server-side/database-side.
+
+### 7. Export visitors
+
+Add export functionality for both Reception and Department users.
+
+Allow exporting the currently filtered visitor/visit list to:
+
+* Excel (.xlsx)
+* PDF
+
+Exports should respect the currently selected:
+
+* Date range
+* Status
+* Search
+* Department/user access restrictions
+
+Do not export data the authenticated user is not authorized to see.
+
+### Important
+
+* Preserve existing authentication, RBAC, department restrictions, real-time notifications, visitor approval/rejection, pagination, and dashboard functionality.
+* PostgreSQL/Prisma remains the source of truth.
+* Validate important rules at the backend/database level.
+* Avoid duplicate business logic between frontend and backend.
+* Keep the UI clean and professional.
+* Reuse existing components and APIs where possible.
+* Do not introduce unnecessary libraries or architecture.
+
+### Verify end-to-end
+
+Test these scenarios:
+
+1. Existing phone number → select suggestion → no duplicate Visitor → new Visit created.
+2. New phone number → new Visitor + new Visit.
+3. Autocomplete selection → dropdown closes immediately → all details including designation populate.
+4. Department rejects → rejection comment saved → Reception sees it in real time.
+5. Visitor leaves without meeting → configured outcome/reason saved correctly.
+6. Reception and Department filters work correctly.
+7. Pagination works with filters.
+8. PDF/Excel exports contain only the filtered and authorized data.
+9. Existing real-time dashboard synchronization continues working.
