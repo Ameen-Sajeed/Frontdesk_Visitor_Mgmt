@@ -3,7 +3,11 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { visitorRegistrationSchema } from "@/lib/validation";
 
-type Department = { id: string; name: string; employees: { id: string; name: string }[] };
+type Department = {
+  id: string;
+  name: string;
+  employees: { id: string; name: string; designation?: string | null }[];
+};
 type FieldName = keyof typeof visitorRegistrationSchema.shape;
 type FormValues = Record<FieldName, string>;
 type VisitorMatch = {
@@ -12,12 +16,14 @@ type VisitorMatch = {
   phone: string;
   email: string | null;
   company: string | null;
+  designation?: string | null;
 };
 const initialValues: FormValues = {
   fullName: "",
   phone: "",
   email: "",
   company: "",
+  designation: "",
   purpose: "",
   departmentId: "",
   hostId: "",
@@ -71,24 +77,14 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
     setValues((current) => ({ ...current, [name]: value }));
     clearFieldError(name);
   }
-  function validateField(name: FieldName, value: string) {
-    const result = visitorRegistrationSchema.partial().safeParse({ [name]: value });
-    const message = result.success ? undefined : result.error.flatten().fieldErrors[name]?.[0];
-    setFieldErrors((current) => {
-      if (!message) {
-        const { [name]: removed, ...remaining } = current;
-        return remaining;
-      }
-      return { ...current, [name]: message };
-    });
-  }
   function chooseReturningVisitor(visitor: VisitorMatch) {
     setValues((current) => ({
       ...current,
       fullName: visitor.fullName,
       email: visitor.email ?? "",
       company: visitor.company ?? "",
-      phone: visitor.phone
+      designation: visitor.designation ?? "",
+      phone: visitor.phone,
     }));
     setMatches([]);
   }
@@ -164,7 +160,7 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                 <Field
                   label="Phone number"
                   name="phone"
-                  type="number"
+                  type="text"
                   required
                   value={values.phone}
                   error={fieldErrors.phone}
@@ -204,6 +200,13 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                   onChange={updateField}
                 />
                 <Field
+                  label="Designation"
+                  name="designation"
+                  value={values.designation}
+                  error={fieldErrors.designation}
+                  onChange={updateField}
+                />
+                <Field
                   label="Purpose of visit"
                   name="purpose"
                   required
@@ -217,9 +220,8 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                   name="departmentId"
                   value={values.departmentId}
                   error={fieldErrors.departmentId}
-                  onChange={(value) => {
-                    console.log("Department changed to:", value);
-                    updateField("departmentId", value);
+                  onChange={(val) => {
+                    updateField("departmentId", val);
                     updateField("hostId", "");
                   }}
                 >
@@ -236,12 +238,12 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                   value={values.hostId}
                   error={fieldErrors.hostId}
                   disabled={!selected}
-                  onChange={(value) => updateField("hostId", value)}
+                  onChange={(val) => updateField("hostId", val)}
                 >
                   <option value="">Select host</option>
                   {selected?.employees.map((employee) => (
                     <option key={employee.id} value={employee.id}>
-                      {employee.name}
+                      {employee.name} {employee.designation ? `(${employee.designation})` : ""}
                     </option>
                   ))}
                 </SelectField>
@@ -249,7 +251,7 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                   label="Visit type"
                   name="type"
                   value={values.type}
-                  onChange={(value) => updateField("type", value)}
+                  onChange={(val) => updateField("type", val)}
                 >
                   <option value="WALK_IN">Walk-in</option>
                   <option value="APPOINTMENT">Appointment</option>
@@ -285,9 +287,9 @@ type FieldProps = {
   value: string;
   error?: string;
   onChange: (name: FieldName, value: string) => void;
-  onBlur: (name: FieldName, value: string) => void;
   children?: ReactNode;
 };
+
 function Field({
   label,
   name,
@@ -298,7 +300,7 @@ function Field({
   error,
   onChange,
   children,
-}: Omit<FieldProps,"onBlur">) {
+}: FieldProps) {
   return (
     <div className={`field ${full ? "full" : ""}`}>
       <label>{label}</label>
@@ -320,6 +322,7 @@ function Field({
     </div>
   );
 }
+
 function SelectField({
   label,
   name,
@@ -328,7 +331,15 @@ function SelectField({
   disabled,
   onChange,
   children,
-}: Omit<FieldProps, "type" | "full" | "required" | "onBlur"> & { disabled?: boolean }) {
+}: {
+  label: string;
+  name: FieldName;
+  value: string;
+  error?: string;
+  disabled?: boolean;
+  onChange: (value: string) => void;
+  children: ReactNode;
+}) {
   return (
     <div className="field">
       <label>{label}</label>
@@ -337,7 +348,7 @@ function SelectField({
         value={value}
         disabled={disabled}
         required={name !== "type"}
-        onChange={(event) => onChange(name, event.target.value)} // Pass the selected value
+        onChange={(event) => onChange(event.target.value)}
         aria-invalid={Boolean(error)}
         aria-describedby={error ? `${name}-error` : undefined}
       >

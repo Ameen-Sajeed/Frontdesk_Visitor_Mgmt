@@ -67,6 +67,7 @@ model Visitor {
   phoneLookupKey String   @default("")
   email          String?
   company        String?
+  designation    String?
   createdAt      DateTime @default(now())
   visits         Visit[]
 

@@ -501,3 +501,93 @@ Keep the UI **minimal, professional, and consistent with the existing `frontdesk
 Please implement these changes now, update the Prisma schema/migration where necessary, and verify that the existing authentication and visitor-management functionality continues to work correctly.
 
 After making the changes, check for TypeScript, Prisma, API, and build errors and fix any issues introduced by the update.
+
+
+After the review . 
+
+From Reception dashbaord :
+a. While registering a user , there is an issue with selecting a deparment . check that fix that . 
+b . add one more field in register visitior i.e their designation too 
+c. also make sure the visitors list go long , it should be paginated properly , whichever , 
+the best through scrolling . or pagination numbers , which is standard for this . also we have to add date filter 
+for choosing through the dates . add that near to all statuse dropdown. 
+
+
+from the department dashbaord :
+a. currenlty only when the the visitor comes for first time that is for approve/reject , we can see 
+the list of visitors , that should be there . 
+b . Here we have to add another tab , where all his visitors , the person should know and seacrh all his users . 
+the visiting time , when they came to meet , in meeting time , checked - in time , and checkout time . (this timing is 
+applicable to recpetion table too , their receptionist should know all the timings . and waiting time also . how long the visitor waited 
+for meeting the person . this timeframe should be captured clean and effiencienlty and it should be there )
+
+c. add date filters too . 
+
+
+After the review, please update the existing Reception and Department dashboards. Keep the current architecture, UI style, and functionality. Do not over-engineer or rewrite working code.
+
+### Reception Dashboard
+
+1. **Register Visitor**
+
+   * Fix the current Department dropdown/selection issue.
+   * Add a **Designation** field.
+   * Ensure both are correctly saved through Prisma/API.
+
+2. **Visitor List**
+
+   * Add proper **server-side pagination** (prefer standard Previous/Next + page numbers).
+   * Add a **Date filter** next to the existing Status filter.
+   * Status + Date + Pagination should work together through the backend.
+
+3. **Visit timings**
+   Reception should be able to see the visitor timeline:
+
+   * Registered at
+   * Approved/Rejected at
+   * Checked-in at
+   * Meeting started at
+   * Checked-out at
+   * Waiting time
+   * Meeting duration
+
+Keep the main table clean; use a details/modal view if needed.
+
+### Department Dashboard
+
+1. Keep the existing **Pending Visitors** view for visitors awaiting approval/rejection.
+
+2. Add a second tab: **Visitor History**
+
+   * Show all previous visitors for the logged-in department user.
+   * Search by visitor name/company/phone.
+   * Add Date and Status filters.
+   * Use server-side pagination.
+
+3. Show complete visit timing:
+
+   * Registered
+   * Approved/Rejected
+   * Checked-in
+   * Meeting started
+   * Checked-out
+   * Waiting time
+   * Meeting duration
+
+4. **Data security**
+
+   * Department users must only see visitors belonging to their authenticated department/user.
+   * Do not trust `departmentId` from the frontend for authorization.
+   * Enforce this in the backend using the authenticated user's `departmentId`.
+
+### Database / Implementation
+
+* Inspect the existing Prisma schema first.
+* Reuse existing models/fields where possible.
+* Add only required fields/timestamps.
+* Update APIs and queries accordingly.
+* Filtering, search, and pagination must happen at the **database/API level**, not only in React.
+* Keep the UI minimal, clean, and consistent with the existing `frontdesk` design.
+* Preserve existing authentication, role-based access, visitor approval, and real-time functionality.
+
+Finally, run Prisma validation, TypeScript checks, and build, and fix any errors introduced.
