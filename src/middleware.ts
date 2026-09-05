@@ -21,7 +21,7 @@ export async function middleware(request: NextRequest) {
   }
 
   const isAuthPage = pathname === "/login";
-  const isProtectedApi = pathname.startsWith("/api/visits") || pathname.startsWith("/api/visitors");
+  const isProtectedApi = pathname.startsWith("/api/visits") || pathname.startsWith("/api/visitors") || pathname.startsWith("/api/export") || pathname.startsWith("/api/config");
   const isProtectedRoute = pathname === "/" || pathname.startsWith("/dashboard") || pathname.startsWith("/department");
 
   // Handle protected API routes
@@ -56,5 +56,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/dashboard/:path*", "/department/:path*", "/login", "/api/visits/:path*", "/api/visitors/:path*"],
+  matcher: ["/", "/dashboard/:path*", "/department/:path*", "/login", "/api/visits/:path*", "/api/visitors/:path*", "/api/export/:path*", "/api/config/:path*"],
 };

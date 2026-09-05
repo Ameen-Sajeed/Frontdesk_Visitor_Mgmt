@@ -8,6 +8,9 @@ import { parsePhoneNumberFromString } from "libphonenumber-js";
 export function normalizePhoneForLookup(phone: string) {
   const trimmed = phone.trim();
   const parsed = parsePhoneNumberFromString(trimmed, "AE");
-  if (parsed?.isValid()) return parsed.number;
+  // Keep the database key numeric so it remains compatible with the original
+  // phone-lookup backfill, while still using libphonenumber to normalize UAE
+  // local numbers (for example, 050… and +971 50… become the same key).
+  if (parsed?.isValid()) return parsed.number.replace(/\D/g, "");
   return trimmed.replace(/[^\d]/g, "");
 }

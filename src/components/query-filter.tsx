@@ -19,7 +19,8 @@ export function QueryFilter({
 
   function update(nextValue: string) {
     const params = new URLSearchParams(searchParams.toString());
-    params.set(name, nextValue);
+    if (nextValue === "ALL") params.delete(name); else params.set(name, nextValue);
+    params.delete("page");
     router.push(`${pathname}?${params.toString()}`);
   }
 

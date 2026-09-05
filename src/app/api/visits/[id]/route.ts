@@ -3,6 +3,7 @@ import { VisitStatus } from "@prisma/client";
 import { changeVisitStatus, visitInclude } from "@/lib/visits";
 import { prisma } from "@/lib/prisma";
 import { broadcastVisitStatusChanged } from "@/lib/socket-emitter";
+import { getAuthSession } from "@/lib/auth";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -10,6 +11,24 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const body = await request.json();
     const { status, rejectionReason, leftReason } = body;
     if (!Object.values(VisitStatus).includes(status)) throw new Error("Invalid visit status.");
+    const session = await getAuthSession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const current = await prisma.visit.findUnique({ where: { id }, select: { departmentId: true, status: true } });
+    if (!current) return NextResponse.json({ error: "Visit not found." }, { status: 404 });
+    const departmentAction = status === VisitStatus.APPROVED || status === VisitStatus.REJECTED;
+    if (departmentAction) {
+      if (session.role !== "DEPARTMENT_LEAD" || session.departmentId !== current.departmentId) {
+        return NextResponse.json({ error: "You cannot decide this visit." }, { status: 403 });
+      }
+    } else if (session.role !== "RECEPTIONIST") {
+      return NextResponse.json({ error: "Only reception can update this visit." }, { status: 403 });
+    }
+    if (status === VisitStatus.REJECTED && typeof rejectionReason === "string" && rejectionReason.length > 500) {
+      throw new Error("Rejection comment is too long.");
+    }
+    if (status === VisitStatus.LEFT_WITHOUT_MEETING && typeof leftReason === "string" && leftReason.length > 500) {
+      throw new Error("Left-without-meeting reason is too long.");
+    }
     
     const updatedVisit = await changeVisitStatus(id, status, { rejectionReason, leftReason });
 
@@ -24,9 +43,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     return NextResponse.json(visitWithDetails || updatedVisit);
   } catch (error) {
+    const statusCode = error instanceof Error && error.message === "Visit not found." ? 404 : 400;
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to update visit." },
-      { status: 400 },
+      { status: statusCode },
     );
   }
 }

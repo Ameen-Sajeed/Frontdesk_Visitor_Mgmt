@@ -21,12 +21,12 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const session = await getAuthSession();
-    if (!session) {
+    if (!session || session.role !== "RECEPTIONIST") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { key, value } = await request.json();
-    if (!key || typeof value !== "string") {
+    if (key !== "wait_threshold_minutes" || typeof value !== "string" || !/^[1-9]\d{0,3}$/.test(value)) {
       return NextResponse.json({ error: "Invalid configuration key/value." }, { status: 400 });
     }
 

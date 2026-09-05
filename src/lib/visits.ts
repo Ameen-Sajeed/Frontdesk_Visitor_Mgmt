@@ -12,7 +12,17 @@ export const visitInclude = {
 
 export type VisitWithDetails = Prisma.VisitGetPayload<{ include: typeof visitInclude }>;
 
-function buildDateWhereClause(dateRange?: string): Prisma.DateTimeFilter | undefined {
+export function buildDateWhereClause(
+  dateRange?: string,
+  startDate?: string,
+  endDate?: string,
+): Prisma.DateTimeFilter | undefined {
+  if (dateRange === "CUSTOM" && (startDate || endDate)) {
+    const filter: Prisma.DateTimeFilter = {};
+    if (startDate) filter.gte = new Date(`${startDate}T00:00:00`);
+    if (endDate) filter.lte = new Date(`${endDate}T23:59:59.999`);
+    return filter;
+  }
   if (!dateRange || dateRange === "ALL") return undefined;
 
   const now = new Date();
@@ -41,12 +51,18 @@ function buildDateWhereClause(dateRange?: string): Prisma.DateTimeFilter | undef
 
 export async function getPaginatedReceptionVisits({
   status,
+  search,
   dateRange,
+  startDate,
+  endDate,
   page = 1,
   limit = 10,
 }: {
   status?: string;
+  search?: string;
   dateRange?: string;
+  startDate?: string;
+  endDate?: string;
   page?: number;
   limit?: number;
 }) {
@@ -56,9 +72,20 @@ export async function getPaginatedReceptionVisits({
     where.status = status as VisitStatus;
   }
 
-  const dateFilter = buildDateWhereClause(dateRange);
+  const dateFilter = buildDateWhereClause(dateRange, startDate, endDate);
   if (dateFilter) {
     where.registeredAt = dateFilter;
+  }
+  if (search?.trim()) {
+    const q = search.trim();
+    where.visitor = {
+      OR: [
+        { fullName: { contains: q, mode: "insensitive" } },
+        { phone: { contains: q, mode: "insensitive" } },
+        { company: { contains: q, mode: "insensitive" } },
+        { designation: { contains: q, mode: "insensitive" } },
+      ],
+    };
   }
 
   const [totalCount, visits] = await Promise.all([
@@ -88,6 +115,8 @@ export async function getPaginatedDepartmentVisits({
   search,
   status,
   dateRange,
+  startDate,
+  endDate,
   tab = "pending",
   page = 1,
   limit = 10,
@@ -96,6 +125,8 @@ export async function getPaginatedDepartmentVisits({
   search?: string;
   status?: string;
   dateRange?: string;
+  startDate?: string;
+  endDate?: string;
   tab?: "pending" | "history" | string;
   page?: number;
   limit?: number;
@@ -109,7 +140,7 @@ export async function getPaginatedDepartmentVisits({
       where.status = status as VisitStatus;
     }
 
-    const dateFilter = buildDateWhereClause(dateRange);
+    const dateFilter = buildDateWhereClause(dateRange, startDate, endDate);
     if (dateFilter) {
       where.registeredAt = dateFilter;
     }
@@ -167,14 +198,7 @@ export async function createVisit(input: VisitorRegistration) {
     const lookupKey = normalizePhoneForLookup(data.phone);
 
     // Reuse existing visitor if matching phone or lookupKey exists
-    let visitor = await tx.visitor.findFirst({
-      where: {
-        OR: [
-          { phoneLookupKey: lookupKey },
-          { phone: data.phone.trim() },
-        ],
-      },
-    });
+    let visitor = await tx.visitor.findUnique({ where: { phoneLookupKey: lookupKey } });
 
     if (visitor) {
       visitor = await tx.visitor.update({

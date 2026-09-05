@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { visitorRegistrationSchema } from "@/lib/validation";
 
 type Department = {
@@ -37,21 +37,35 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [matches, setMatches] = useState<VisitorMatch[]>([]);
+  const [lookupOpen, setLookupOpen] = useState(false);
+  const [activeMatch, setActiveMatch] = useState(-1);
+  const phoneFieldRef = useRef<HTMLDivElement>(null);
+  const selectedPhoneRef = useRef<string | null>(null);
   const selected = departments.find((item) => item.id === values.departmentId);
 
   useEffect(() => {
     const phone = values.phone.trim();
+    if (selectedPhoneRef.current === phone) {
+      selectedPhoneRef.current = null;
+      return;
+    }
     if (phone.replace(/\D/g, "").length < 3) {
       setMatches([]);
+      setLookupOpen(false);
       return;
     }
     let isCurrent = true;
     const timer = window.setTimeout(async () => {
       try {
         const response = await fetch(`/api/visitors?phone=${encodeURIComponent(phone)}`);
-        if (isCurrent && response.ok) setMatches(await response.json());
+        if (isCurrent && response.ok) {
+          const nextMatches = await response.json();
+          setMatches(nextMatches);
+          setLookupOpen(nextMatches.length > 0);
+          setActiveMatch(-1);
+        }
       } catch {
-        if (isCurrent) setMatches([]);
+        if (isCurrent) { setMatches([]); setLookupOpen(false); }
       }
     }, 300);
     return () => {
@@ -64,6 +78,7 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
     setOpen(false);
     setValues(initialValues);
     setMatches([]);
+    setLookupOpen(false);
     setFieldErrors({});
     setError("");
   }
@@ -74,10 +89,13 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
     });
   }
   function updateField(name: FieldName, value: string) {
+    if (name === "phone") selectedPhoneRef.current = null;
     setValues((current) => ({ ...current, [name]: value }));
+    if (name === "phone") { setLookupOpen(value.replace(/\D/g, "").length >= 3); setActiveMatch(-1); }
     clearFieldError(name);
   }
   function chooseReturningVisitor(visitor: VisitorMatch) {
+    selectedPhoneRef.current = visitor.phone;
     setValues((current) => ({
       ...current,
       fullName: visitor.fullName,
@@ -87,6 +105,8 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
       phone: visitor.phone,
     }));
     setMatches([]);
+    setLookupOpen(false);
+    setActiveMatch(-1);
   }
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -128,6 +148,7 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
         onClick={() => {
           setValues(initialValues);
           setMatches([]);
+          setLookupOpen(false);
           setFieldErrors({});
           setError("");
           setOpen(true);
@@ -157,22 +178,25 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                   error={fieldErrors.fullName}
                   onChange={updateField}
                 />
-                <Field
-                  label="Phone number"
-                  name="phone"
-                  type="text"
-                  required
-                  value={values.phone}
-                  error={fieldErrors.phone}
-                  onChange={updateField}
-                >
-                  {matches.length > 0 && (
+                <div className="field" ref={phoneFieldRef}>
+                  <label htmlFor="phone">Phone number</label>
+                  <input id="phone" name="phone" type="text" required value={values.phone} onChange={(event) => updateField("phone", event.target.value)} onFocus={() => matches.length && setLookupOpen(true)} onKeyDown={(event) => {
+                    if (!lookupOpen || !matches.length) return;
+                    if (event.key === "ArrowDown") { event.preventDefault(); setActiveMatch((current) => Math.min(current + 1, matches.length - 1)); }
+                    if (event.key === "ArrowUp") { event.preventDefault(); setActiveMatch((current) => Math.max(current - 1, 0)); }
+                    if (event.key === "Escape") { setLookupOpen(false); }
+                    if (event.key === "Enter" && activeMatch >= 0) { event.preventDefault(); chooseReturningVisitor(matches[activeMatch]); }
+                  }} aria-invalid={Boolean(fieldErrors.phone)} aria-describedby={fieldErrors.phone ? "phone-error" : undefined} />
+                  {fieldErrors.phone && <p className="error" id="phone-error">{fieldErrors.phone}</p>}
+                  {lookupOpen && matches.length > 0 && (
                     <div className="lookup-results" role="listbox" aria-label="Returning visitors">
                       {matches.map((visitor) => (
                         <button
                           key={visitor.id}
                           type="button"
-                          onClick={() => chooseReturningVisitor(visitor)}
+                          role="option"
+                          aria-selected={activeMatch === matches.indexOf(visitor)}
+                          onMouseDown={(event) => { event.preventDefault(); chooseReturningVisitor(visitor); }}
                         >
                           <strong>{visitor.fullName}</strong>
                           <span>
@@ -183,7 +207,7 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                       ))}
                     </div>
                   )}
-                </Field>
+                </div>
                 <Field
                   label="Email address"
                   name="email"

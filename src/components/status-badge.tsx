@@ -8,6 +8,7 @@ const labels: Record<VisitStatus, string> = {
   CHECKED_IN: "Checked in",
   IN_MEETING: "In meeting",
   CHECKED_OUT: "Checked out",
+  LEFT_WITHOUT_MEETING: "Left without meeting",
 };
 const classes: Record<VisitStatus, string> = {
   REGISTERED: "neutral",
@@ -17,6 +18,7 @@ const classes: Record<VisitStatus, string> = {
   CHECKED_IN: "checked",
   IN_MEETING: "checked",
   CHECKED_OUT: "neutral",
+  LEFT_WITHOUT_MEETING: "rejected",
 };
 export function StatusBadge({ status }: { status: VisitStatus }) {
   return <span className={`badge ${classes[status]}`}>{labels[status]}</span>;

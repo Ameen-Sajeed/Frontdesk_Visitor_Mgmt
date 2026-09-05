@@ -13,6 +13,7 @@ import { DepartmentTabs } from "@/components/department-tabs";
 import { VisitDetailsModal } from "@/components/visit-details-modal";
 import { RealtimeListener } from "@/components/realtime-listener";
 import { formatDateTime } from "@/lib/timing";
+import { ExportVisits } from "@/components/export-visits";
 
 export default async function DepartmentQueue({
   searchParams,
@@ -22,10 +23,12 @@ export default async function DepartmentQueue({
     search?: string;
     status?: string;
     dateRange?: string;
+    startDate?: string;
+    endDate?: string;
     page?: string;
   }>;
 }) {
-  const { tab, search, status, dateRange, page } = await searchParams;
+  const { tab, search, status, dateRange, startDate, endDate, page } = await searchParams;
   const session = await getAuthSession();
 
   // Strict Data Security Enforcement: Backend determines departmentId from authenticated user session
@@ -52,6 +55,8 @@ export default async function DepartmentQueue({
         search,
         status,
         dateRange,
+        startDate,
+        endDate,
         tab: activeTab,
         page: pageNum,
         limit: 10,
@@ -146,6 +151,7 @@ export default async function DepartmentQueue({
                     })),
                   ]}
                 />
+                <ExportVisits />
               </div>
             </div>
 

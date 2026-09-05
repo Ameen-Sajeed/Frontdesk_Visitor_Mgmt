@@ -2,6 +2,7 @@ const { createServer } = require("http");
 const { parse } = require("url");
 const next = require("next");
 const { Server } = require("socket.io");
+const { notifyDelayedVisits } = require("./src/lib/delayed-visits");
 
 const dev = process.env.NODE_ENV !== "production";
 const app = next({ dev });
@@ -49,6 +50,12 @@ app.prepare().then(() => {
   });
 
   global.io = io;
+
+  // This is a server-side scheduled check, not browser polling. The shared
+  // service atomically claims each alert before emitting it.
+  setInterval(() => {
+    notifyDelayedVisits(io).catch((error) => console.error("Delayed-visit check failed", error));
+  }, 60 * 1000);
 
   const PORT = process.env.PORT || 3000;
   server.listen(PORT, (err) => {

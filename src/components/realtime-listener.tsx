@@ -16,7 +16,7 @@ interface RealtimeListenerProps {
 
 interface ToastNotification {
   id: string;
-  type: "new_visitor" | "status_change";
+  type: "new_visitor" | "status_change" | "delayed";
   visit: {
     id: string;
     status: string;
@@ -83,13 +83,20 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
             id: toastId,
             type: "status_change",
             visit,
-            message: `Visitor ${visit.visitor.fullName} was ${statusLabel} by ${visit.department?.name || "department"}.`,
+            message: `Visitor ${visit.visitor.fullName} was ${statusLabel} by ${visit.department?.name || "department"}.${visit.rejectionReason ? ` Reason: ${visit.rejectionReason}` : ""}`,
           },
           ...prev,
         ]);
       }
 
       // Auto refresh both dashboards in real time
+      router.refresh();
+    });
+
+    socket.on("visit_delayed_alert", (alert) => {
+      if (user.role !== "RECEPTIONIST") return;
+      const toastId = `toast_${Date.now()}_${alert.visit.id}`;
+      setToasts((prev) => [{ id: toastId, type: "delayed", visit: alert.visit, message: alert.message }, ...prev]);
       router.refresh();
     });
 
@@ -108,7 +115,7 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
       const res = await fetch(`/api/visits/${visitId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, ...(status === VisitStatus.REJECTED ? { rejectionReason: window.prompt("Rejection comment (optional):") || "" } : {}), ...(status === VisitStatus.LEFT_WITHOUT_MEETING ? { leftReason: window.prompt("Why did the visitor leave? (optional):") || "" } : {}) }),
       });
       if (!res.ok) throw new Error("Failed to update status.");
       removeToast(toastId);
@@ -158,12 +165,12 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
                   width: 10,
                   height: 10,
                   borderRadius: "50%",
-                  backgroundColor: toast.type === "new_visitor" ? "#3b82f6" : "#10b981",
+                  backgroundColor: toast.type === "new_visitor" ? "#3b82f6" : toast.type === "delayed" ? "#f59e0b" : "#10b981",
                   display: "inline-block",
                 }}
               />
               <strong style={{ fontSize: "0.875rem" }}>
-                {toast.type === "new_visitor" ? "New Visitor Waiting" : "Visitor Status Updated"}
+                {toast.type === "new_visitor" ? "New Visitor Waiting" : toast.type === "delayed" ? "Waiting too long" : "Visitor Status Updated"}
               </strong>
             </div>
             <button
@@ -201,6 +208,12 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
               >
                 {actionLoading === toast.visit.id ? "Saving…" : "Approve"}
               </button>
+            </div>
+          )}
+          {toast.type === "delayed" && user?.role === "RECEPTIONIST" && (
+            <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+              <button className="secondary" onClick={() => removeToast(toast.id)} style={{ flex: 1, padding: "6px 10px", fontSize: "0.8125rem", borderRadius: 6 }}>Continue waiting</button>
+              <button className="danger" disabled={actionLoading === toast.visit.id} onClick={() => handleToastAction(toast.id, toast.visit.id, VisitStatus.LEFT_WITHOUT_MEETING)} style={{ flex: 1, padding: "6px 10px", fontSize: "0.8125rem", borderRadius: 6 }}>Mark left</button>
             </div>
           )}
         </div>

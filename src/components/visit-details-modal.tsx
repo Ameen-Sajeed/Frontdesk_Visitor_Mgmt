@@ -16,6 +16,9 @@ interface VisitDetailsModalProps {
     checkedInAt?: Date | string | null;
     meetingStartedAt?: Date | string | null;
     checkedOutAt?: Date | string | null;
+    leftAt?: Date | string | null;
+    rejectionReason?: string | null;
+    leftReason?: string | null;
     visitor: {
       fullName: string;
       phone: string;
@@ -97,6 +100,7 @@ export function VisitDetailsModal({ visit }: VisitDetailsModalProps) {
                   <strong>{visit.purpose}</strong>
                 </div>
               </div>
+              {(visit.rejectionReason || visit.leftReason) && <div style={{ fontSize: "0.875rem" }}><span style={{ color: "var(--muted, #64748b)" }}>{visit.rejectionReason ? "Rejection comment: " : "Left without meeting reason: "}</span><strong>{visit.rejectionReason || visit.leftReason}</strong></div>}
 
               {/* Visit Timeline */}
               <div>
@@ -110,6 +114,7 @@ export function VisitDetailsModal({ visit }: VisitDetailsModalProps) {
                   {visit.checkedInAt && <TimelineItem label="Checked in at" time={visit.checkedInAt} />}
                   {visit.meetingStartedAt && <TimelineItem label="Meeting started at" time={visit.meetingStartedAt} />}
                   {visit.checkedOutAt && <TimelineItem label="Checked out at" time={visit.checkedOutAt} />}
+                  {visit.leftAt && <TimelineItem label="Left without meeting at" time={visit.leftAt} />}
                 </div>
               </div>
             </div>

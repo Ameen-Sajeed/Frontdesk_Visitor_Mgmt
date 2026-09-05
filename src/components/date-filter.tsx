@@ -14,10 +14,8 @@ export function DateFilter({ value = "ALL", name = "dateRange" }: DateFilterProp
 
   const options = [
     { value: "ALL", label: "All time" },
-    { value: "TODAY", label: "Today" },
-    { value: "YESTERDAY", label: "Yesterday" },
-    { value: "7DAYS", label: "Last 7 Days" },
     { value: "30DAYS", label: "Last 30 Days" },
+    { value: "CUSTOM", label: "Custom range" },
   ];
 
   const handleChange = (newValue: string) => {
@@ -32,7 +30,8 @@ export function DateFilter({ value = "ALL", name = "dateRange" }: DateFilterProp
   };
 
   return (
-    <select
+    <>
+      <select
       className="filter-select"
       value={value}
       onChange={(e) => handleChange(e.target.value)}
@@ -45,12 +44,32 @@ export function DateFilter({ value = "ALL", name = "dateRange" }: DateFilterProp
         color: "inherit",
         cursor: "pointer",
       }}
-    >
+      >
       {options.map((opt) => (
         <option key={opt.value} value={opt.value}>
           {opt.label}
         </option>
       ))}
-    </select>
+      </select>
+      {value === "CUSTOM" && <CustomRange />}
+    </>
+  );
+}
+
+function CustomRange() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const update = (name: "startDate" | "endDate", value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) params.set(name, value); else params.delete(name);
+    params.delete("page");
+    router.push(`${pathname}?${params.toString()}`);
+  };
+  return (
+    <span style={{ display: "inline-flex", gap: 6 }}>
+      <input aria-label="From date" className="filter-select" type="date" value={searchParams.get("startDate") ?? ""} onChange={(event) => update("startDate", event.target.value)} />
+      <input aria-label="To date" className="filter-select" type="date" value={searchParams.get("endDate") ?? ""} onChange={(event) => update("endDate", event.target.value)} />
+    </span>
   );
 }

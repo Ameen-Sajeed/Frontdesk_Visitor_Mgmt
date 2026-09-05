@@ -11,19 +11,24 @@ import { Pagination } from "@/components/pagination";
 import { VisitDetailsModal } from "@/components/visit-details-modal";
 import { RealtimeListener } from "@/components/realtime-listener";
 import { formatDateTime } from "@/lib/timing";
+import { prisma } from "@/lib/prisma";
+import { SearchFilter } from "@/components/search-filter";
+import { ExportVisits } from "@/components/export-visits";
+import { WaitThresholdSettings } from "@/components/wait-threshold-settings";
 
 export default async function Dashboard({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; dateRange?: string; page?: string }>;
+  searchParams: Promise<{ status?: string; search?: string; dateRange?: string; startDate?: string; endDate?: string; page?: string }>;
 }) {
-  const { status, dateRange, page } = await searchParams;
+  const { status, search, dateRange, startDate, endDate, page } = await searchParams;
   const pageNum = Number(page) || 1;
 
-  const [session, paginatedData, departments] = await Promise.all([
+  const [session, paginatedData, departments, waitThreshold] = await Promise.all([
     getAuthSession(),
-    getPaginatedReceptionVisits({ status, dateRange, page: pageNum, limit: 10 }),
+    getPaginatedReceptionVisits({ status, search, dateRange, startDate, endDate, page: pageNum, limit: 10 }),
     getDepartmentsWithHosts(),
+    prisma.appConfig.findUnique({ where: { key: "wait_threshold_minutes" } }),
   ]);
 
   const { visits, totalCount, totalPages } = paginatedData;
@@ -60,6 +65,7 @@ export default async function Dashboard({
           <h2>Visitor list ({totalCount})</h2>
 
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <SearchFilter defaultValue={search ?? ""} />
             <DateFilter value={dateRange ?? "ALL"} />
 
             <QueryFilter
@@ -73,6 +79,8 @@ export default async function Dashboard({
                 })),
               ]}
             />
+            <ExportVisits />
+            <WaitThresholdSettings initialMinutes={waitThreshold?.value || "30"} />
           </div>
         </div>
 
@@ -134,6 +142,8 @@ export default async function Dashboard({
                           visitId={visit.id}
                           actions={[{ status: VisitStatus.CHECKED_OUT, label: "Check out" }]}
                         />
+                      ) : ([VisitStatus.WAITING_APPROVAL, VisitStatus.APPROVED, VisitStatus.CHECKED_IN] as VisitStatus[]).includes(visit.status) ? (
+                        <VisitActions visitId={visit.id} actions={[{ status: VisitStatus.LEFT_WITHOUT_MEETING, label: "Mark left", kind: "danger" }]} />
                       ) : (
                         <span className="small">—</span>
                       )}

@@ -72,7 +72,7 @@ model Visitor {
   createdAt      DateTime @default(now())
   visits         Visit[]
 
-  @@index([phoneLookupKey])
+  @@unique([phoneLookupKey])
 }
 
 model Visit {
