@@ -792,3 +792,253 @@ Test these scenarios:
 7. Pagination works with filters.
 8. PDF/Excel exports contain only the filtered and authorized data.
 9. Existing real-time dashboard synchronization continues working.
+
+
+
+
+
+
+After review, I want to implement the following **UI/UX improvements**.
+
+### IMPORTANT — REVIEW FIRST
+
+Before making any changes:
+
+* Inspect the current Reception and Department table implementations.
+* Check the existing pagination, server-side fetching, filters, search, and API logic.
+* Check the current rejection-comment popup/modal and its styling.
+* Understand how these pieces currently work before modifying them.
+* **Do not rewrite working functionality.**
+* **Do not make changes outside the requirements below.**
+* Follow the same architecture, components, styling approach, and design language already used in the project.
+* Some functionality may already be partially implemented, so extend/fix the existing implementation instead of creating parallel logic.
+
+---
+
+### 1. Improve Visitor Table Scrolling + Pagination
+
+Currently, when the Reception or Department visitor table contains many rows, the **entire page becomes very long and the user has to scroll the whole page**.
+
+Improve the UX:
+
+* Keep the existing server-side pagination.
+* Make the visitor table area a **fixed/contained scrollable region**.
+* The page/header/filter area should remain stable while the user scrolls through the table.
+* Users should be able to scroll vertically **inside the table/list area**.
+* Pagination should continue to work with the existing server-side pagination logic.
+* When the user navigates to the next/previous page, fetch the corresponding page data from the backend.
+* Preserve all existing filters/search/date/status/department restrictions.
+* Do not load the entire dataset into the browser just to create scrolling.
+* Keep server-side pagination as the source of the data.
+* Make the table height responsive so it works properly on different screen sizes.
+* Avoid unnecessary nested scrollbars or making the overall page difficult to use.
+* If the current pagination can be improved to work naturally with the contained table scroll, do so using the existing architecture.
+
+The desired UX is:
+
+**Dashboard → Filters/header remain clean → Visitor table has its own scroll area → Pagination controls remain accessible → Next page fetches server-side data.**
+
+Apply the same approach consistently to both:
+
+* Reception Dashboard
+* Department Dashboard / Visitor History
+
+---
+
+### 2. Improve Department Rejection Comment Popup
+
+The current rejection-comment popup in the Department section has a textarea/design that looks visually heavy and does not match the rest of the application.
+
+Redesign it to be:
+
+* Minimal
+* Clean
+* Professional
+* Consistent with the existing `frontdesk` UI
+* Compact
+* Easy to understand
+* Comfortable to use
+
+Specifically:
+
+* Replace the current visually heavy textarea styling with a cleaner minimal input design.
+* Keep the popup/modal compact.
+* Use appropriate spacing and typography.
+* Make the rejection reason/comment field visually consistent with the existing form components.
+* Keep clear primary/secondary actions such as:
+
+  * Cancel
+  * Reject
+* Make the destructive/rejection action visually clear without making the entire modal visually noisy.
+* Ensure the textarea has a sensible height and does not dominate the popup.
+* Preserve existing validation and submission logic.
+* Do not change the rejection business logic or API behavior unless required for the UI fix.
+
+---
+
+### Important
+
+Do not introduce a new design system or unnecessary UI library.
+
+Use the **existing CSS/Tailwind/components/design patterns** already present in the project.
+
+The final result should feel like a natural improvement to the existing application, not a completely redesigned section.
+
+### Verification
+
+Before finishing, verify:
+
+1. Reception table does not make the entire page excessively long.
+2. Department table/history behaves the same way.
+3. Table scrolling works smoothly.
+4. Existing server-side pagination still works.
+5. Search/status/date filters continue working with pagination.
+6. Department access restrictions remain intact.
+7. Rejection popup is clean and minimal.
+8. Rejection comments still save correctly.
+9. Existing real-time rejection notification flow is unaffected.
+10. No unrelated components or functionality are changed.
+
+**Review first → understand existing implementation → make only these changes → then provide a summary of modified files and what was changed.**
+
+After review, implement the following UI/UX fixes.
+
+## IMPORTANT — REVIEW FIRST
+
+Before changing anything:
+
+* Inspect the current Reception Dashboard layout and table implementation.
+* Inspect the Department Dashboard/table implementation.
+* Inspect the current pagination and scroll behavior.
+* Inspect all alert/notification implementations, especially:
+
+  * Left Without Meeting
+  * Department rejection from the toast/popup flow
+* Inspect the existing rejection-comment popup we created.
+* Check related components, hooks, APIs, and state management.
+
+**Do not make changes based on assumptions.**
+**Do not rewrite working functionality.**
+Follow the existing architecture and design approach.
+
+---
+
+## 1. Fix Reception Dashboard page scroll
+
+There is currently a small/unnecessary scrollbar on the Reception Dashboard itself.
+
+Fix the layout so that:
+
+* Everything that should be visible within the current viewport is displayed without an unnecessary page-level scrollbar.
+* Remove the unwanted overall dashboard/page scroll.
+* The dashboard layout should fit naturally within the available viewport.
+* Do not simply hide overflow if that would hide content.
+* Check the actual cause of the extra scroll (height, padding, margins, viewport calculations, etc.) and fix the root cause.
+
+### Important
+
+The **tables should be the only areas that scroll vertically**.
+
+So the intended behavior is:
+
+**Dashboard viewport → Header/filters/actions remain stable → Table has its own scroll area → Pagination remains accessible.**
+
+Apply the same principle consistently to Reception and Department where applicable.
+
+Make sure responsive behavior is not broken.
+
+---
+
+## 2. Remove normal browser alerts
+
+I have noticed some normal browser `alert()` style notifications in the application.
+
+Remove these from the relevant flows, especially:
+
+* Left Without Meeting
+* Rejection flow
+
+Do not use native browser alerts for user-facing application feedback.
+
+Use the existing application's toast/modal/notification approach instead.
+
+---
+
+## 3. Rejection flow must use the reusable rejection popup
+
+Currently, when rejecting from the Department toast/popup, the application is using a normal alert or another inconsistent interaction.
+
+Change this flow so that:
+
+* The Department user always uses the **rejection comment popup/modal** we created.
+* Remove the existing alert-based rejection interaction.
+* The rejection popup should be the single consistent UI for entering the rejection reason/comment.
+* After submission, continue using the existing real-time notification flow to inform Reception.
+
+### Make the rejection popup reusable
+
+Refactor the existing rejection-comment popup into a **reusable component**.
+
+It should be possible to use the same component from:
+
+* Department pending visitor list
+* Department notification/toast
+* Any future rejection action
+
+The component should handle the UI/input/actions while the actual business logic/API call remains appropriately separated.
+
+Do not duplicate the rejection form in multiple places.
+
+---
+
+## 4. Preserve existing functionality
+
+Do not break:
+
+* Authentication/RBAC
+* Department restrictions
+* Visitor approval/rejection
+* Rejection comments
+* Left Without Meeting workflow
+* Wait threshold notifications
+* WebSocket/Socket.IO real-time updates
+* Pagination
+* Search
+* Status/date filters
+* Visitor history
+* Export functionality
+
+Do not change unrelated components.
+
+Use the existing design system/components/styles and keep the UI minimal and consistent with `frontdesk`.
+
+---
+
+## Verification
+
+Before finishing, verify:
+
+1. Reception Dashboard has no unnecessary page-level scrollbar.
+2. Department Dashboard behaves correctly.
+3. Only the intended table/list areas scroll.
+4. Table pagination remains accessible and functional.
+5. No native browser `alert()` remains in the affected flows.
+6. Left Without Meeting uses the application's proper notification/UI pattern.
+7. Rejection always opens the rejection-comment popup.
+8. Rejection popup is implemented as a reusable component.
+9. Rejection comments still save correctly.
+10. Reception still receives the rejection in real time.
+11. No unrelated functionality is changed.
+
+**Review → identify root cause → implement only the above → verify → provide a summary of changed files.**
+
+
+After review . 
+
+In the reception dashbaord , remove that showing showing of 1 of 2 (total) , also in that 
+total visits add the overall visits not page wise . 
+
+also the pagination below is not working properly , why in first page we need previous button . 
+only if there is data previous and next button should come . update it and fix it properly . 
+
+

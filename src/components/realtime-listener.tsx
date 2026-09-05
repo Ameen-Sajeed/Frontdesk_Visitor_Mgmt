@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { io, Socket } from "socket.io-client";
 import { VisitStatus } from "@prisma/client";
+import { VisitReasonModal } from "@/components/visit-reason-modal";
+import { Loader } from "@/components/loader";
 
 interface RealtimeListenerProps {
   user?: {
@@ -34,6 +36,8 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
   const router = useRouter();
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [reasonAction, setReasonAction] = useState<{ toastId: string; visitId: string; status: "REJECTED" | "LEFT_WITHOUT_MEETING" } | null>(null);
+  const [actionError, setActionError] = useState("");
 
   useEffect(() => {
     if (!user) return;
@@ -109,25 +113,26 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  const handleToastAction = async (toastId: string, visitId: string, status: VisitStatus) => {
+  const handleToastAction = async (toastId: string, visitId: string, status: VisitStatus, reason?: string) => {
     setActionLoading(visitId);
+    setActionError("");
     try {
       const res = await fetch(`/api/visits/${visitId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, ...(status === VisitStatus.REJECTED ? { rejectionReason: window.prompt("Rejection comment (optional):") || "" } : {}), ...(status === VisitStatus.LEFT_WITHOUT_MEETING ? { leftReason: window.prompt("Why did the visitor leave? (optional):") || "" } : {}) }),
+        body: JSON.stringify({ status, ...(status === VisitStatus.REJECTED ? { rejectionReason: reason } : {}), ...(status === VisitStatus.LEFT_WITHOUT_MEETING ? { leftReason: reason } : {}) }),
       });
       if (!res.ok) throw new Error("Failed to update status.");
       removeToast(toastId);
       router.refresh();
     } catch {
-      alert("Failed to update visitor status.");
+      setActionError("Could not update the visitor. Please try again.");
     } finally {
       setActionLoading(null);
     }
   };
 
-  if (toasts.length === 0) return null;
+  if (toasts.length === 0 && !reasonAction) return null;
 
   return (
     <div
@@ -143,6 +148,7 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
         width: "100%",
       }}
     >
+      {actionError && <div className="realtime-feedback" role="status">{actionError}</div>}
       {toasts.map((toast) => (
         <div
           key={toast.id}
@@ -195,10 +201,10 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
               <button
                 className="danger"
                 disabled={actionLoading === toast.visit.id}
-                onClick={() => handleToastAction(toast.id, toast.visit.id, VisitStatus.REJECTED)}
+                onClick={() => setReasonAction({ toastId: toast.id, visitId: toast.visit.id, status: VisitStatus.REJECTED })}
                 style={{ flex: 1, padding: "6px 10px", fontSize: "0.8125rem", borderRadius: 6 }}
               >
-                Reject
+                {actionLoading === toast.visit.id ? <Loader label="Saving" /> : "Reject"}
               </button>
               <button
                 className="primary"
@@ -206,18 +212,30 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
                 onClick={() => handleToastAction(toast.id, toast.visit.id, VisitStatus.APPROVED)}
                 style={{ flex: 1, padding: "6px 10px", fontSize: "0.8125rem", borderRadius: 6 }}
               >
-                {actionLoading === toast.visit.id ? "Saving…" : "Approve"}
+                {actionLoading === toast.visit.id ? <Loader label="Saving" /> : "Approve"}
               </button>
             </div>
           )}
           {toast.type === "delayed" && user?.role === "RECEPTIONIST" && (
             <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
               <button className="secondary" onClick={() => removeToast(toast.id)} style={{ flex: 1, padding: "6px 10px", fontSize: "0.8125rem", borderRadius: 6 }}>Continue waiting</button>
-              <button className="danger" disabled={actionLoading === toast.visit.id} onClick={() => handleToastAction(toast.id, toast.visit.id, VisitStatus.LEFT_WITHOUT_MEETING)} style={{ flex: 1, padding: "6px 10px", fontSize: "0.8125rem", borderRadius: 6 }}>Mark left</button>
+              <button className="danger" disabled={actionLoading === toast.visit.id} onClick={() => setReasonAction({ toastId: toast.id, visitId: toast.visit.id, status: VisitStatus.LEFT_WITHOUT_MEETING })} style={{ flex: 1, padding: "6px 10px", fontSize: "0.8125rem", borderRadius: 6 }}>{actionLoading === toast.visit.id ? <Loader label="Saving" /> : "Mark left"}</button>
             </div>
           )}
         </div>
       ))}
+      {reasonAction && (
+        <VisitReasonModal
+          status={reasonAction.status}
+          visitId={reasonAction.visitId}
+          loading={actionLoading === reasonAction.visitId}
+          onCancel={() => setReasonAction(null)}
+          onSubmit={(reason) => {
+            handleToastAction(reasonAction.toastId, reasonAction.visitId, reasonAction.status, reason);
+            setReasonAction(null);
+          }}
+        />
+      )}
     </div>
   );
 }

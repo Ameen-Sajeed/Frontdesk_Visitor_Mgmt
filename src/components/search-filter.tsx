@@ -1,10 +1,11 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useTableNavigation } from "@/components/table-navigation";
 
 export function SearchFilter({ defaultValue = "" }: { defaultValue?: string }) {
-  const router = useRouter();
+  const { navigate } = useTableNavigation();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [searchTerm, setSearchTerm] = useState(defaultValue);
@@ -15,20 +16,24 @@ export function SearchFilter({ defaultValue = "" }: { defaultValue?: string }) {
 
   useEffect(() => {
     const timer = setTimeout(() => {
+      const nextSearch = searchTerm.trim();
+      const currentSearch = searchParams.get("search") ?? "";
+      // SearchParams also changes during pagination. Only reset the page when
+      // the search value itself has changed.
+      if (nextSearch === currentSearch) return;
+
       const params = new URLSearchParams(searchParams.toString());
-      if (searchTerm.trim()) {
-        params.set("search", searchTerm.trim());
+      if (nextSearch) {
+        params.set("search", nextSearch);
       } else {
         params.delete("search");
       }
       params.delete("page");
-      if (params.toString() !== searchParams.toString()) {
-        router.push(`${pathname}?${params.toString()}`);
-      }
+      navigate(`${pathname}?${params.toString()}`);
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [searchTerm, pathname, router, searchParams]);
+  }, [searchTerm, pathname, navigate, searchParams]);
 
   return (
     <div style={{ position: "relative", display: "inline-block" }}>

@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { visitorRegistrationSchema } from "@/lib/validation";
+import { Loader } from "@/components/loader";
+import { useTableNavigation } from "@/components/table-navigation";
 
 type Department = {
   id: string;
@@ -31,6 +33,7 @@ const initialValues: FormValues = {
 };
 
 export function RegisterVisitor({ departments }: { departments: Department[] }) {
+  const { refresh } = useTableNavigation();
   const [open, setOpen] = useState(false);
   const [values, setValues] = useState<FormValues>(initialValues);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -134,7 +137,7 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
       const result = await response.json();
       if (!response.ok) throw new Error(result.error);
       resetModal();
-      window.location.reload();
+      refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not register the visitor.");
     } finally {
@@ -291,7 +294,7 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                   Cancel
                 </button>
                 <button className="primary" disabled={saving}>
-                  {saving ? "Registering…" : "Register visitor"}
+                  {saving ? <Loader label="Registering" /> : "Register visitor"}
                 </button>
               </div>
             </form>

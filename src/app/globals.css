@@ -138,6 +138,46 @@ h1 {
 .panel {
   overflow: hidden;
 }
+.workspace-shell {
+  height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding-top: 24px;
+  padding-bottom: 24px;
+}
+.workspace-shell .nav {
+  margin-bottom: 24px;
+}
+.workspace-shell .hero {
+  margin-bottom: 20px;
+}
+.workspace-shell .cards {
+  margin: 16px 0;
+}
+.workspace-shell .panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.workspace-shell .panel > div:not(.toolbar):not(.table-section) {
+  min-height: 0;
+}
+.department-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+.table-section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
 .toolbar {
   padding: 18px 20px;
   border-bottom: 1px solid var(--line);
@@ -162,6 +202,68 @@ table {
   border-collapse: collapse;
   width: 100%;
   font-size: 14px;
+}
+.table-scroll {
+  max-height: min(62vh, 620px);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.workspace-shell .table-scroll,
+.workspace-shell .queue-scroll {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+.queue-scroll {
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.table-scroll:focus-visible {
+  outline: 2px solid #93b4f8;
+  outline-offset: -2px;
+}
+.table-scroll th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.table-loading {
+  position: absolute;
+  top: 10px;
+  right: 16px;
+  z-index: 3;
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--muted);
+  font-size: 13px;
+  pointer-events: none;
+}
+.loader {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+.loader-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.loader-dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: loader-dot 0.9s ease-in-out infinite;
+}
+.loader-dots i:nth-child(2) { animation-delay: 0.15s; }
+.loader-dots i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes loader-dot {
+  0%, 60%, 100% { opacity: 0.35; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-3px); }
 }
 th {
   text-align: left;
@@ -292,6 +394,63 @@ tbody tr:last-child td {
   gap: 10px;
   margin-top: 23px;
 }
+.reason-dialog {
+  width: min(420px, 100%);
+}
+.reason-dialog-head {
+  padding: 18px 20px;
+}
+.reason-dialog-head h2 {
+  font-size: 17px;
+}
+.reason-dialog-body {
+  padding: 18px 20px 20px;
+}
+.reason-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 650;
+}
+.reason-field em {
+  color: var(--muted);
+  font-style: normal;
+  font-weight: 400;
+}
+.reason-field textarea,
+.reason-select {
+  width: 100%;
+  border: 1px solid #d8dde6;
+  border-radius: 8px;
+  padding: 9px 10px;
+  color: var(--ink);
+  outline-color: var(--brand);
+}
+.reason-field textarea {
+  min-height: 76px;
+  resize: vertical;
+}
+.reason-select {
+  margin-bottom: 12px;
+  background: white;
+}
+.reason-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-top: 18px;
+}
+.realtime-feedback {
+  border: 1px solid #f4c7cb;
+  border-radius: 10px;
+  background: #fff7f7;
+  color: #b4232e;
+  padding: 12px 14px;
+  font-size: 13px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12);
+}
 .queue {
   display: grid;
   gap: 12px;
@@ -373,8 +532,23 @@ tbody tr:last-child td {
   .cards {
     grid-template-columns: 1fr 1fr;
   }
-  .panel {
-    overflow: auto;
+  .table-scroll {
+    max-height: 58vh;
+  }
+  .workspace-shell {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+    padding-bottom: 32px;
+  }
+  .workspace-shell .panel,
+  .workspace-shell .table-section,
+  .department-content {
+    display: block;
+  }
+  .workspace-shell .table-scroll,
+  .workspace-shell .queue-scroll {
+    max-height: 58vh;
   }
   .grid {
     grid-template-columns: 1fr;

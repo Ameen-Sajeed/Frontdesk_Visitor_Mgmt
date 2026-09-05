@@ -1,6 +1,7 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useTableNavigation } from "@/components/table-navigation";
 
 type Option = { value: string; label: string };
 
@@ -14,14 +15,14 @@ export function QueryFilter({
   options: Option[];
 }) {
   const pathname = usePathname();
-  const router = useRouter();
+  const { navigate } = useTableNavigation();
   const searchParams = useSearchParams();
 
   function update(nextValue: string) {
     const params = new URLSearchParams(searchParams.toString());
     if (nextValue === "ALL") params.delete(name); else params.set(name, nextValue);
     params.delete("page");
-    router.push(`${pathname}?${params.toString()}`);
+    navigate(`${pathname}?${params.toString()}`);
   }
 
   return (

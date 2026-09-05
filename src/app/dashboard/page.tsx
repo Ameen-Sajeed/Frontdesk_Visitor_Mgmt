@@ -15,6 +15,7 @@ import { prisma } from "@/lib/prisma";
 import { SearchFilter } from "@/components/search-filter";
 import { ExportVisits } from "@/components/export-visits";
 import { WaitThresholdSettings } from "@/components/wait-threshold-settings";
+import { TableLoadingIndicator, TableNavigationProvider } from "@/components/table-navigation";
 
 export default async function Dashboard({
   searchParams,
@@ -38,29 +39,30 @@ export default async function Dashboard({
   const active = visits.filter((v) => activeStatuses.includes(v.status)).length;
 
   return (
-    <main className="shell">
-      <UserNav user={session} />
-      <RealtimeListener user={session} />
-      <section className="hero">
+    <main className="shell workspace-shell">
+      <TableNavigationProvider>
+        <UserNav user={session} />
+        <RealtimeListener user={session} />
+        <section className="hero">
         <div>
           <p className="eyebrow">Reception workspace</p>
           <h1>Visitors, handled with confidence.</h1>
           <p className="sub">Register arrivals and keep every hand-off visible.</p>
         </div>
         <RegisterVisitor departments={departments} />
-      </section>
+        </section>
 
-      <section className="cards">
-        <Stat label="Total visits on page" value={visits.length} />
+        <section className="cards">
+        <Stat label="Total visits" value={totalCount} />
         <Stat label="Awaiting approval" value={waiting} />
         <Stat label="On site" value={active} />
         <Stat
           label="Checked out"
           value={visits.filter((v) => v.status === VisitStatus.CHECKED_OUT).length}
         />
-      </section>
+        </section>
 
-      <section className="panel">
+        <section className="panel">
         <div className="toolbar" style={{ flexWrap: "wrap", gap: 12 }}>
           <h2>Visitor list ({totalCount})</h2>
 
@@ -85,23 +87,24 @@ export default async function Dashboard({
         </div>
 
         {visits.length ? (
-          <>
-            <table>
-              <thead>
-                <tr>
-                  <th>Visitor</th>
-                  <th>Department</th>
-                  <th>Host</th>
-                  <th>Visit</th>
-                  <th>Status</th>
-                  <th>Registered</th>
-                  <th>Next step</th>
-                  <th>Details</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visits.map((visit) => (
-                  <tr key={visit.id}>
+          <div className="table-section">
+            <div className="table-scroll" tabIndex={0} aria-label="Visitor list">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Visitor</th>
+                    <th>Department</th>
+                    <th>Host</th>
+                    <th>Visit</th>
+                    <th>Status</th>
+                    <th>Registered</th>
+                    <th>Next step</th>
+                    <th>Details</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visits.map((visit) => (
+                    <tr key={visit.id}>
                     <td>
                       <div className="visitor">{visit.visitor.fullName}</div>
                       <div className="small">
@@ -151,17 +154,20 @@ export default async function Dashboard({
                     <td>
                       <VisitDetailsModal visit={visit} />
                     </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-            <Pagination page={pageNum} totalPages={totalPages} totalCount={totalCount} />
-          </>
+            <Pagination page={pageNum} totalPages={totalPages} />
+            <TableLoadingIndicator />
+          </div>
         ) : (
           <div className="empty">No visitors match this filter.</div>
         )}
-      </section>
+        </section>
+      </TableNavigationProvider>
     </main>
   );
 }

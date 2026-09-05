@@ -1,15 +1,15 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useTableNavigation } from "@/components/table-navigation";
 
 interface PaginationProps {
   page: number;
   totalPages: number;
-  totalCount: number;
 }
 
-export function Pagination({ page, totalPages, totalCount }: PaginationProps) {
-  const router = useRouter();
+export function Pagination({ page, totalPages }: PaginationProps) {
+  const { navigate, isPending } = useTableNavigation();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -17,7 +17,7 @@ export function Pagination({ page, totalPages, totalCount }: PaginationProps) {
     if (newPage < 1 || newPage > totalPages) return;
     const params = new URLSearchParams(searchParams.toString());
     params.set("page", newPage.toString());
-    router.push(`${pathname}?${params.toString()}`);
+    navigate(`${pathname}?${params.toString()}`);
   };
 
   if (totalPages <= 1) return null;
@@ -27,27 +27,25 @@ export function Pagination({ page, totalPages, totalCount }: PaginationProps) {
       style={{
         display: "flex",
         alignItems: "center",
-        justifyContent: "space-between",
+        justifyContent: "center",
         padding: "12px 16px",
         borderTop: "1px solid var(--border, #e2e8f0)",
         fontSize: "0.875rem",
         color: "var(--muted, #64748b)",
       }}
     >
-      <div>
-        Showing page <strong>{page}</strong> of <strong>{totalPages}</strong> ({totalCount} total)
-      </div>
-
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <button
-          type="button"
-          className="secondary"
-          disabled={page <= 1}
-          onClick={() => handlePageChange(page - 1)}
-          style={{ padding: "6px 12px", fontSize: "0.8125rem", borderRadius: 6 }}
-        >
-          Previous
-        </button>
+        {page > 1 && (
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => handlePageChange(page - 1)}
+            disabled={isPending}
+            style={{ padding: "6px 12px", fontSize: "0.8125rem", borderRadius: 6 }}
+          >
+            Previous
+          </button>
+        )}
 
         {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
           // Show current page, first, last, and immediate neighbors
@@ -58,6 +56,7 @@ export function Pagination({ page, totalPages, totalCount }: PaginationProps) {
                 type="button"
                 className={p === page ? "primary" : "secondary"}
                 onClick={() => handlePageChange(p)}
+                disabled={isPending || p === page}
                 style={{
                   padding: "6px 10px",
                   fontSize: "0.8125rem",
@@ -78,15 +77,17 @@ export function Pagination({ page, totalPages, totalCount }: PaginationProps) {
           return null;
         })}
 
-        <button
-          type="button"
-          className="secondary"
-          disabled={page >= totalPages}
-          onClick={() => handlePageChange(page + 1)}
-          style={{ padding: "6px 12px", fontSize: "0.8125rem", borderRadius: 6 }}
-        >
-          Next
-        </button>
+        {page < totalPages && (
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => handlePageChange(page + 1)}
+            disabled={isPending}
+            style={{ padding: "6px 12px", fontSize: "0.8125rem", borderRadius: 6 }}
+          >
+            Next
+          </button>
+        )}
       </div>
     </div>
   );

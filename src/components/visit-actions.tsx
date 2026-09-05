@@ -1,6 +1,8 @@
 "use client";
 import { useState } from "react";
 import { VisitStatus } from "@prisma/client";
+import { VisitReasonModal } from "@/components/visit-reason-modal";
+import { Loader } from "@/components/loader";
 
 export function VisitActions({
   visitId,
@@ -11,7 +13,6 @@ export function VisitActions({
 }) {
   const [loading, setLoading] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<VisitStatus | null>(null);
-  const [reason, setReason] = useState("");
   async function update(status: VisitStatus, comment?: string) {
     setLoading(true);
     try {
@@ -21,7 +22,8 @@ export function VisitActions({
         body: JSON.stringify({ status, ...(status === VisitStatus.REJECTED ? { rejectionReason: comment } : {}), ...(status === VisitStatus.LEFT_WITHOUT_MEETING ? { leftReason: comment } : {}) }),
       });
       if (!res.ok) throw new Error();
-      window.location.reload();
+      // The API emits visit_status_changed, which refreshes connected dashboards.
+      // Avoid a second local refresh that can cause a visible remount/flash.
     } finally {
       setLoading(false);
     }
@@ -33,22 +35,19 @@ export function VisitActions({
           key={action.status}
           className={action.kind ?? "secondary"}
           disabled={loading}
-          onClick={() => (action.status === VisitStatus.REJECTED || action.status === VisitStatus.LEFT_WITHOUT_MEETING) ? (setPendingStatus(action.status), setReason("")) : update(action.status)}
+          onClick={() => (action.status === VisitStatus.REJECTED || action.status === VisitStatus.LEFT_WITHOUT_MEETING) ? setPendingStatus(action.status) : update(action.status)}
         >
-          {loading ? "Saving…" : action.label}
+          {loading ? <Loader label="Saving" /> : action.label}
         </button>
       ))}
       {pendingStatus && (
-        <div className="overlay" role="dialog" aria-modal="true" aria-label="Add visit reason">
-          <div className="modal" style={{ maxWidth: 440 }}>
-            <div className="modal-head"><div><h2>{pendingStatus === VisitStatus.REJECTED ? "Reject visitor" : "Visitor left without meeting"}</h2><p className="small">This reason will be saved in the visit history.</p></div><button className="icon-button" type="button" onClick={() => setPendingStatus(null)}>×</button></div>
-            <div className="form" style={{ padding: 20 }}>
-              {pendingStatus === VisitStatus.LEFT_WITHOUT_MEETING && <select value={reason} onChange={(event) => setReason(event.target.value)}><option value="">Select a reason</option><option>Staff unavailable</option><option>Staff delayed</option><option>Visitor decided to leave</option><option>Other</option></select>}
-              <textarea aria-label="Reason or comment" value={reason} onChange={(event) => setReason(event.target.value)} placeholder={pendingStatus === VisitStatus.REJECTED ? "Rejection comment (optional)" : "Add detail, especially for Other (optional)"} maxLength={500} style={{ minHeight: 90 }} />
-              <div className="form-actions"><button type="button" className="secondary" onClick={() => setPendingStatus(null)}>Cancel</button><button type="button" className="primary" disabled={loading} onClick={() => { update(pendingStatus, reason); setPendingStatus(null); }}>{loading ? "Saving…" : "Confirm"}</button></div>
-            </div>
-          </div>
-        </div>
+        <VisitReasonModal
+          status={pendingStatus as "REJECTED" | "LEFT_WITHOUT_MEETING"}
+          visitId={visitId}
+          loading={loading}
+          onCancel={() => setPendingStatus(null)}
+          onSubmit={(reason) => { update(pendingStatus, reason); setPendingStatus(null); }}
+        />
       )}
     </div>
   );

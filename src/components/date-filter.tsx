@@ -1,6 +1,7 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useTableNavigation } from "@/components/table-navigation";
 
 interface DateFilterProps {
   value?: string;
@@ -8,7 +9,7 @@ interface DateFilterProps {
 }
 
 export function DateFilter({ value = "ALL", name = "dateRange" }: DateFilterProps) {
-  const router = useRouter();
+  const { navigate } = useTableNavigation();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -26,7 +27,7 @@ export function DateFilter({ value = "ALL", name = "dateRange" }: DateFilterProp
       params.set(name, newValue);
     }
     params.delete("page"); // Reset to page 1 on filter change
-    router.push(`${pathname}?${params.toString()}`);
+    navigate(`${pathname}?${params.toString()}`);
   };
 
   return (
@@ -57,14 +58,14 @@ export function DateFilter({ value = "ALL", name = "dateRange" }: DateFilterProp
 }
 
 function CustomRange() {
-  const router = useRouter();
+  const { navigate } = useTableNavigation();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const update = (name: "startDate" | "endDate", value: string) => {
     const params = new URLSearchParams(searchParams.toString());
     if (value) params.set(name, value); else params.delete(name);
     params.delete("page");
-    router.push(`${pathname}?${params.toString()}`);
+    navigate(`${pathname}?${params.toString()}`);
   };
   return (
     <span style={{ display: "inline-flex", gap: 6 }}>

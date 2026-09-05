@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Loader } from "@/components/loader";
 
 export function WaitThresholdSettings({ initialMinutes }: { initialMinutes: string }) {
   const [minutes, setMinutes] = useState(initialMinutes);
@@ -19,7 +20,7 @@ export function WaitThresholdSettings({ initialMinutes }: { initialMinutes: stri
     <label className="small" htmlFor="wait-threshold">Wait alert</label>
     <input id="wait-threshold" className="filter" type="number" min="1" max="1440" value={minutes} onChange={(event) => setMinutes(event.target.value)} style={{ width: 72 }} />
     <span className="small">min</span>
-    <button className="secondary" type="button" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</button>
+    <button className="secondary" type="button" onClick={save} disabled={saving}>{saving ? <Loader label="Saving" /> : "Save"}</button>
     {message && <span className="small">{message}</span>}
   </div>;
 }
