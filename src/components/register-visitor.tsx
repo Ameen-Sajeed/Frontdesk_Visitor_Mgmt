@@ -88,6 +88,7 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
       fullName: visitor.fullName,
       email: visitor.email ?? "",
       company: visitor.company ?? "",
+      phone: visitor.phone
     }));
     setMatches([]);
   }
@@ -159,17 +160,15 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                   value={values.fullName}
                   error={fieldErrors.fullName}
                   onChange={updateField}
-                  onBlur={validateField}
                 />
                 <Field
                   label="Phone number"
                   name="phone"
-                  type="tel"
+                  type="number"
                   required
                   value={values.phone}
                   error={fieldErrors.phone}
                   onChange={updateField}
-                  onBlur={validateField}
                 >
                   {matches.length > 0 && (
                     <div className="lookup-results" role="listbox" aria-label="Returning visitors">
@@ -196,7 +195,6 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                   value={values.email}
                   error={fieldErrors.email}
                   onChange={updateField}
-                  onBlur={validateField}
                 />
                 <Field
                   label="Company name"
@@ -204,7 +202,6 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                   value={values.company}
                   error={fieldErrors.company}
                   onChange={updateField}
-                  onBlur={validateField}
                 />
                 <Field
                   label="Purpose of visit"
@@ -214,7 +211,6 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                   value={values.purpose}
                   error={fieldErrors.purpose}
                   onChange={updateField}
-                  onBlur={validateField}
                 />
                 <SelectField
                   label="Department"
@@ -222,10 +218,10 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                   value={values.departmentId}
                   error={fieldErrors.departmentId}
                   onChange={(value) => {
+                    console.log("Department changed to:", value);
                     updateField("departmentId", value);
                     updateField("hostId", "");
                   }}
-                  onBlur={validateField}
                 >
                   <option value="">Select department</option>
                   {departments.map((department) => (
@@ -241,7 +237,6 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                   error={fieldErrors.hostId}
                   disabled={!selected}
                   onChange={(value) => updateField("hostId", value)}
-                  onBlur={validateField}
                 >
                   <option value="">Select host</option>
                   {selected?.employees.map((employee) => (
@@ -255,7 +250,6 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                   name="type"
                   value={values.type}
                   onChange={(value) => updateField("type", value)}
-                  onBlur={validateField}
                 >
                   <option value="WALK_IN">Walk-in</option>
                   <option value="APPOINTMENT">Appointment</option>
@@ -303,9 +297,8 @@ function Field({
   value,
   error,
   onChange,
-  onBlur,
   children,
-}: FieldProps) {
+}: Omit<FieldProps,"onBlur">) {
   return (
     <div className={`field ${full ? "full" : ""}`}>
       <label>{label}</label>
@@ -315,7 +308,6 @@ function Field({
         value={value}
         required={required}
         onChange={(event) => onChange(name, event.target.value)}
-        onBlur={(event) => onBlur(name, event.target.value)}
         aria-invalid={Boolean(error)}
         aria-describedby={error ? `${name}-error` : undefined}
       />
@@ -335,9 +327,8 @@ function SelectField({
   error,
   disabled,
   onChange,
-  onBlur,
   children,
-}: Omit<FieldProps, "type" | "full" | "required"> & { disabled?: boolean }) {
+}: Omit<FieldProps, "type" | "full" | "required" | "onBlur"> & { disabled?: boolean }) {
   return (
     <div className="field">
       <label>{label}</label>
@@ -346,8 +337,7 @@ function SelectField({
         value={value}
         disabled={disabled}
         required={name !== "type"}
-        onChange={(event) => onChange(name, event.target.value)}
-        onBlur={(event) => onBlur(name, event.target.value)}
+        onChange={(event) => onChange(event.target.value)} // Pass the selected value
         aria-invalid={Boolean(error)}
         aria-describedby={error ? `${name}-error` : undefined}
       >

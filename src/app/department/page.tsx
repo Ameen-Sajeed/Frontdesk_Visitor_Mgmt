@@ -33,7 +33,7 @@ export default async function DepartmentQueue({
           front<i>desk</i>
         </div>
         <div className="nav-links">
-          <Link href="/">Reception</Link>
+          <Link href="/dashboard">Reception</Link>
           <Link href="/department">Department queue</Link>
         </div>
       </nav>
