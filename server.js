@@ -60,6 +60,6 @@ app.prepare().then(() => {
   const PORT = process.env.PORT || 3000;
   server.listen(PORT, (err) => {
     if (err) throw err;
-    console.log(`> Frontdesk server running on http://localhost:${PORT}`);
+    console.log(`> arriVo server running on http://localhost:${PORT}`);
   });
 });

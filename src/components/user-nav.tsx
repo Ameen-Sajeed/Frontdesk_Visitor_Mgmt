@@ -36,18 +36,9 @@ export function UserNav({ user }: UserNavProps) {
     <nav className="nav">
       <div className="brand">
         <Link href={isDepartmentUser ? "/department" : "/dashboard"} style={{ color: "inherit", textDecoration: "none" }}>
-          front<i>desk</i>
+        arri<i>Vo</i>
         </Link>
       </div>
-
-      {/* <div className="nav-links">
-        {isDepartmentUser ? (
-          <Link href="/department">My Visitors</Link>
-        ) : (
-          <Link href="/dashboard">Reception</Link>
-        )}
-      </div> */}
-
       {user && (
         <div className="user-profile" style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ textAlign: "right" }}>

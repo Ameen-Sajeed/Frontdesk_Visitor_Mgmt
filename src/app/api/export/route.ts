@@ -125,7 +125,7 @@ export async function GET(request: Request) {
       const doc = new jsPDF({ orientation: "landscape" });
 
       doc.setFontSize(16);
-      doc.text("Frontdesk Visitor Management Report", 14, 15);
+      doc.text("arriVo Visitor Management Report", 14, 15);
       doc.setFontSize(10);
       doc.text(`Generated on: ${new Date().toLocaleString()} | Total Records: ${visits.length}`, 14, 22);
 

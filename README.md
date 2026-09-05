@@ -1,4 +1,4 @@
-# Frontdesk — Reception & Visitor Management
+# arriVo — Reception & Visitor Management
 
 A Stage 1 visitor-management MVP built with Next.js App Router, TypeScript, PostgreSQL, and Prisma.
 

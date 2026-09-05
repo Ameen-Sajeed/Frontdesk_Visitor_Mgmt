@@ -87,7 +87,7 @@ export default function LoginPage() {
       <div className="auth-container">
         {/* Brand */}
         <Link href="/" className="auth-brand">
-          front<i>desk</i>
+         arri<i>Vo</i>
         </Link>
 
         {/* Intro */}
@@ -98,8 +98,8 @@ export default function LoginPage() {
 
           <h1>
             {isRegistering
-              ? "Get started with frontdesk."
-              : "Sign in to frontdesk."}
+              ? "Get started with arriVo."
+              : "Sign in to arriVo."}
           </h1>
 
           <p className="auth-sub">
