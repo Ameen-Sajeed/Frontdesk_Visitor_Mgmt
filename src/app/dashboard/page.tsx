@@ -1,6 +1,7 @@
-import Link from "next/link";
 import { VisitStatus } from "@prisma/client";
 import { getDashboardVisits, getDepartmentsWithHosts } from "@/lib/visits";
+import { getAuthSession } from "@/lib/auth";
+import { UserNav } from "@/components/user-nav";
 import { RegisterVisitor } from "@/components/register-visitor";
 import { StatusBadge } from "@/components/status-badge";
 import { VisitActions } from "@/components/visit-actions";
@@ -18,7 +19,8 @@ export default async function Dashboard({
   searchParams: Promise<{ status?: string }>;
 }) {
   const { status } = await searchParams;
-  const [visits, departments] = await Promise.all([
+  const [session, visits, departments] = await Promise.all([
+    getAuthSession(),
     getDashboardVisits(status),
     getDepartmentsWithHosts(),
   ]);
@@ -27,15 +29,7 @@ export default async function Dashboard({
   const active = visits.filter((v) => activeStatuses.includes(v.status)).length;
   return (
     <main className="shell">
-      <nav className="nav">
-        <div className="brand">
-          front<i>desk</i>
-        </div>
-        <div className="nav-links">
-          <Link href="/dashboard">Reception</Link>
-          <Link href="/department">Department queue</Link>
-        </div>
-      </nav>
+      <UserNav user={session} />
       <section className="hero">
         <div>
           <p className="eyebrow">Reception workspace</p>

@@ -1,0 +1,2 @@
+2026-09-05 13:51:01.354 IST [46136] FATAL:  pre-existing shared memory block (key 46844333, ID 65536) is still in use
+2026-09-05 13:51:01.354 IST [46136] HINT:  Terminate any old server processes associated with data directory "/opt/homebrew/var/postgresql@17".

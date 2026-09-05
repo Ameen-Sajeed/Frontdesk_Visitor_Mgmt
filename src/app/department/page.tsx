@@ -1,6 +1,7 @@
-import Link from "next/link";
 import { VisitStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { getAuthSession } from "@/lib/auth";
+import { UserNav } from "@/components/user-nav";
 import { StatusBadge } from "@/components/status-badge";
 import { VisitActions } from "@/components/visit-actions";
 import { QueryFilter } from "@/components/query-filter";
@@ -16,9 +17,19 @@ export default async function DepartmentQueue({
 }: {
   searchParams: Promise<{ department?: string }>;
 }) {
-  const { department } = await searchParams;
-  const departments = await prisma.department.findMany({ orderBy: { name: "asc" } });
-  const departmentId = department ?? departments[0]?.id;
+  const { department: searchDept } = await searchParams;
+  const session = await getAuthSession();
+
+  // Security enforcement: Department users are restricted strictly to their assigned departmentId
+  const departmentId =
+    session?.role === "DEPARTMENT_LEAD"
+      ? session.departmentId
+      : searchDept ?? session?.departmentId ?? null;
+
+  const currentDepartment = departmentId
+    ? await prisma.department.findUnique({ where: { id: departmentId } })
+    : null;
+
   const visits = departmentId
     ? await prisma.visit.findMany({
         where: { departmentId, status: VisitStatus.WAITING_APPROVAL },
@@ -26,34 +37,24 @@ export default async function DepartmentQueue({
         orderBy: [{ priority: "desc" }, { approvalAskedAt: "asc" }],
       })
     : [];
+
   return (
     <main className="shell">
-      <nav className="nav">
-        <div className="brand">
-          front<i>desk</i>
-        </div>
-        <div className="nav-links">
-          <Link href="/dashboard">Reception</Link>
-          <Link href="/department">Department queue</Link>
-        </div>
-      </nav>
+      <UserNav user={session} />
       <section className="hero">
         <div>
           <p className="eyebrow">Department workspace</p>
           <h1>Approval queue</h1>
-          <p className="sub">Review incoming visitors in priority and arrival order.</p>
+          <p className="sub">
+            {currentDepartment ? `Review visitors waiting for ${currentDepartment.name}.` : "Review incoming visitors for your department."}
+          </p>
         </div>
       </section>
       <section className="panel">
         <div className="toolbar">
           <h2>
-            {departments.find((item) => item.id === departmentId)?.name ?? "Department"} visitors
+            {currentDepartment ? `${currentDepartment.name} visitors` : "My Department Visitors"}
           </h2>
-          <QueryFilter
-            name="department"
-            value={departmentId}
-            options={departments.map((item) => ({ value: item.id, label: item.name }))}
-          />
         </div>
         <div style={{ padding: 18 }} className="queue">
           {visits.length ? (
@@ -65,7 +66,7 @@ export default async function DepartmentQueue({
                   </h3>
                   <p className="queue-meta">
                     {visit.visitor.company ? `${visit.visitor.company} · ` : ""}Meeting{" "}
-                    {visit.host.name} · {visit.type === "WALK_IN" ? "Walk-in" : "Appointment"}
+                    {visit.host.name} {visit.host.designation ? `(${visit.host.designation})` : ""} · {visit.type === "WALK_IN" ? "Walk-in" : "Appointment"}
                   </p>
                   <p className="queue-meta">
                     {visit.purpose} · Requested{" "}

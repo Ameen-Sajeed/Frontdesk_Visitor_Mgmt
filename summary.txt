@@ -89,3 +89,415 @@ Then propose the implementation step-by-step and explain **why each change is ne
                              ▼
                       Receptionist
                          notified
+
+Okay, you’ve got the correct project folder. Great.
+
+Let’s implement this **in stages** and keep everything clean, minimal, reusable, and aligned with my existing codebase.
+
+### Stage 1 — Authentication & User Setup
+
+First, implement the basic **Receptionist and Department user registration/sign-in flow**.
+
+I want both types of users to be able to:
+
+* Register an account
+* Sign in
+* Sign out
+* Access their appropriate interface after authentication
+* Be redirected to the correct dashboard based on their role
+
+The two roles are:
+
+* `RECEPTIONIST`
+* `DEPARTMENT_LEAD`
+
+For Department Leads, they should also be associated with a specific department.
+
+### Authentication requirements
+
+Implement a simple and standard authentication flow using **JWT**.
+
+Please include:
+
+* Login API
+* Registration API
+* Password hashing
+* JWT generation
+* Secure token/session handling
+* Authentication middleware
+* Protected routes
+* Logout functionality
+* Redirect unauthenticated users to `/login`
+* Prevent authenticated users from accessing the login/register pages unnecessarily
+* Role-based access where appropriate
+
+After login:
+
+```text
+RECEPTIONIST
+    → Reception dashboard
+
+DEPARTMENT_LEAD
+    → Department dashboard
+```
+
+The user should **not need to manually select their role during login**. The role should come from their authenticated account.
+
+### Database / Prisma
+
+Update the existing Prisma schema only where necessary.
+
+Please inspect my current schema and existing models first.
+
+Use a simple structure along these lines, but adapt it to my existing models rather than blindly replacing anything:
+
+```text
+User
+- id
+- name
+- email
+- password
+- role
+- departmentId (nullable for receptionist)
+- createdAt
+- updatedAt
+
+Department
+- id
+- name
+- ...
+```
+
+If I already have equivalent models or fields, **reuse them instead of creating duplicates**.
+
+Run the necessary Prisma migration and make sure the existing functionality continues to work.
+
+### API requirements
+
+Follow the API structure and coding patterns already present in my project.
+
+Create only the APIs we actually need for this stage, such as:
+
+```text
+POST /api/auth/register
+POST /api/auth/login
+POST /api/auth/logout
+GET  /api/auth/me
+```
+
+Don't create unnecessary endpoints.
+
+Make sure validation and error handling are clean and consistent.
+
+### UI
+
+Create a minimal, professional authentication experience that matches my existing `frontdesk` design.
+
+I want:
+
+* Clean login page
+* Clean registration page
+* Receptionist / Department Lead role selection during registration
+* Department selection only when registering as a Department Lead
+* Loading states
+* Basic validation
+* Clear error states
+* Logout button/action
+* Responsive design
+
+Don't introduce a completely new visual style or UI framework.
+
+Reuse my existing components, CSS patterns, fonts, colors, spacing, and design language wherever possible.
+
+### Route protection
+
+The important behavior should be:
+
+```text
+Not authenticated
+        ↓
+     /login
+        ↓
+     Sign in
+        ↓
+ Authenticated user
+        ↓
+ ┌───────────────┐
+ │               │
+Receptionist   Department Lead
+ │               │
+ ↓               ↓
+/             /department
+```
+
+Users should not be able to simply type `/` or `/department` into the browser and access the dashboard without authentication.
+
+Protect the dashboard routes on the server/middleware level, not only through client-side checks.
+
+### Important implementation rules
+
+Please **do not over-engineer this**.
+
+This is currently a lightweight 2-day task/demo, so I want the implementation to be:
+
+* Simple
+* Standard
+* Maintainable
+* Reusable
+* Secure enough for this application
+* Easy to understand
+* Consistent with my existing code
+
+Do NOT introduce unnecessary:
+
+* Authentication frameworks
+* Complex RBAC systems
+* Microservices
+* Extra state-management libraries
+* Unnecessary abstractions
+* Overly complicated folder structures
+
+Before changing anything:
+
+1. Inspect the existing folder structure.
+2. Inspect the Prisma schema.
+3. Inspect the current API structure.
+4. Inspect the current Reception and Department pages.
+5. Understand the existing coding patterns.
+6. Then implement authentication using those existing patterns.
+
+**Do not rewrite working parts of the application unnecessarily.**
+
+After implementation, verify that:
+
+* Registration works for both roles.
+* Login works.
+* Passwords are not stored as plain text.
+* JWT authentication works.
+* Protected routes work.
+* Role-based redirects work.
+* Logout works.
+* Existing visitor/reception functionality still works.
+* Prisma schema and migrations are valid.
+* TypeScript/build errors are resolved.
+
+Work incrementally and keep the implementation as small and clean as possible.
+
+**Do not move to real-time visitor notifications yet.**
+
+For now, let's complete **Stage 1: Authentication, users, roles, departments, protected routes, and dashboard access** properly. We can build the real-time approval/notification workflow as the next stage.
+
+
+Feedback from the review . 
+
+1. Make the tag as department instead of deparment lead . 
+2. Also in that department form add one form which is like designation. 
+3. Registration form , add a confirm password option also an option see the password (eye view icon)
+4 . Also once the user logs in dont show the both Reception and Deparment queue to the both users . remove it . 
+for department users , show their dashboard and for reception theirs . also in the department 
+dashbaord there is a dropdown that can be removed . becuase only that specific users should see their visiors and their timings and details . 
+Update these changes . 
+
+Feedback from the review — please update the existing implementation accordingly.
+
+Please inspect the current code and make these changes **without unnecessarily restructuring or rewriting the existing functionality**.
+
+### 1. Department user label
+
+Wherever the registration form currently uses:
+
+> Department Lead
+
+Change the terminology to:
+
+> Department
+
+This should be used consistently across the UI.
+
+---
+
+### 2. Add Designation
+
+In the Department registration form, add a new field:
+
+**Designation**
+
+Example:
+
+```text
+Full name
+Work email
+Department
+Designation
+Password
+Confirm password
+```
+
+The designation should be stored in the user record so that we can later display information such as:
+
+> Ahmed Khan
+> IT Manager
+> IT Department
+
+Update the Prisma schema and migration if required.
+
+---
+
+### 3. Improve password fields
+
+In the registration form:
+
+* Add **Confirm Password**
+* Add an eye/visibility icon to both Password and Confirm Password fields.
+* Clicking the eye icon should toggle between:
+
+  * `password`
+  * `text`
+
+Add proper validation to ensure:
+
+```text
+Password === Confirm Password
+```
+
+Keep the validation clean and user-friendly.
+
+---
+
+### 4. Role-based navigation
+
+Once a user is authenticated, **do not show both Reception and Department Queue navigation options to everyone.**
+
+The interface should depend on the authenticated user's role.
+
+#### Receptionist
+
+A receptionist should only see:
+
+```text
+frontdesk
+
+Reception
+```
+
+They should not see or access the Department Queue through the normal navigation.
+
+#### Department user
+
+A Department user should only see:
+
+```text
+frontdesk
+
+My Visitors
+```
+
+or an appropriate equivalent for their department dashboard.
+
+They should not see the Reception interface.
+
+The navigation should therefore be dynamically rendered based on the authenticated user's role.
+
+---
+
+### 5. Department dashboard
+
+The Department dashboard currently has a department dropdown/filter.
+
+Remove this dropdown.
+
+A Department user should **automatically see only the visitors assigned to their own department**.
+
+For example:
+
+```text
+Logged-in user:
+Ahmed
+Department: IT
+Designation: IT Manager
+
+        ↓
+
+Department Dashboard
+
+Only visitors assigned to IT
+```
+
+The user should not be able to switch to another department from the UI.
+
+The backend/API should also enforce this restriction. Do not rely only on hiding the dropdown on the frontend.
+
+The department user should see relevant information such as:
+
+* Visitor name
+* Company
+* Purpose
+* Registration time
+* Visit status
+* Appointment/walk-in information
+* Relevant timing/details
+* Approve/decline actions where applicable
+
+---
+
+### 6. Important security requirement
+
+Please make sure the filtering is based on the **authenticated user's department**, not a department ID supplied by the frontend.
+
+For example, avoid relying on:
+
+```text
+/api/visits?departmentId=...
+```
+
+for authorization.
+
+Instead, the backend should determine:
+
+```text
+Authenticated user
+        ↓
+User.departmentId
+        ↓
+Fetch visitors for that department
+```
+
+This prevents a Department user from manually changing a query parameter and viewing another department's visitors.
+
+---
+
+### 7. Keep the existing architecture
+
+Please follow the existing project's:
+
+* Prisma structure
+* API patterns
+* Authentication approach
+* Component structure
+* Styling/design system
+* Naming conventions
+
+Do not introduce unnecessary libraries or architectural changes.
+
+Keep the UI **minimal, professional, and consistent with the existing `frontdesk` design**.
+
+### Final expected behavior
+
+```text
+                    Login
+                      │
+             ┌────────┴────────┐
+             │                 │
+        Receptionist       Department User
+             │                 │
+             ▼                 ▼
+        Reception          My Visitors
+             │                 │
+      All reception       Only their
+       functionality      department's
+                          visitors
+```
+
+Please implement these changes now, update the Prisma schema/migration where necessary, and verify that the existing authentication and visitor-management functionality continues to work correctly.
+
+After making the changes, check for TypeScript, Prisma, API, and build errors and fix any issues introduced by the update.

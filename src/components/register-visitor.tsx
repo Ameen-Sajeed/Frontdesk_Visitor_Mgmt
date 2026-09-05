@@ -337,7 +337,7 @@ function SelectField({
         value={value}
         disabled={disabled}
         required={name !== "type"}
-        onChange={(event) => onChange(event.target.value)} // Pass the selected value
+        onChange={(event) => onChange(name, event.target.value)} // Pass the selected value
         aria-invalid={Boolean(error)}
         aria-describedby={error ? `${name}-error` : undefined}
       >
