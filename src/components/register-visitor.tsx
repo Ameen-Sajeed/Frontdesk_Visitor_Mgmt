@@ -233,6 +233,15 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                   error={fieldErrors.designation}
                   onChange={updateField}
                 />
+                <SelectField
+                  label="Visit type"
+                  name="type"
+                  value={values.type}
+                  onChange={(val) => updateField("type", val)}
+                  >
+                  <option value="WALK_IN">Walk-in</option>
+                  <option value="APPOINTMENT">Appointment</option>
+                </SelectField>
                 <Field
                   label="Purpose of visit"
                   name="purpose"
@@ -273,15 +282,6 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                       {employee.name} {employee.designation ? `(${employee.designation})` : ""}
                     </option>
                   ))}
-                </SelectField>
-                <SelectField
-                  label="Visit type"
-                  name="type"
-                  value={values.type}
-                  onChange={(val) => updateField("type", val)}
-                >
-                  <option value="WALK_IN">Walk-in</option>
-                  <option value="APPOINTMENT">Appointment</option>
                 </SelectField>
               </div>
               {error && (

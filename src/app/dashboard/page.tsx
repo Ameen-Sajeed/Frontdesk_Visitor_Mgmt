@@ -66,7 +66,7 @@ export default async function Dashboard({
         <div className="toolbar" style={{ flexWrap: "wrap", gap: 12 }}>
           <h2>Visitor list ({totalCount})</h2>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div className="toolbar-controls">
             <SearchFilter defaultValue={search ?? ""} />
             <DateFilter value={dateRange ?? "ALL"} />
 

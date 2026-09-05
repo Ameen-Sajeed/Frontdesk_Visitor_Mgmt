@@ -142,7 +142,7 @@ export default async function DepartmentQueue({
             <div className="toolbar" style={{ flexWrap: "wrap", gap: 12 }}>
               <h2>Visitor History ({totalCount})</h2>
 
-              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <div className="toolbar-controls">
                 <SearchFilter defaultValue={search ?? ""} />
                 <DateFilter value={dateRange ?? "ALL"} />
                 <QueryFilter
