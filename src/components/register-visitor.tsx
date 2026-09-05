@@ -8,7 +8,15 @@ import { useTableNavigation } from "@/components/table-navigation";
 type Department = {
   id: string;
   name: string;
-  employees: { id: string; name: string; designation?: string | null }[];
+  employees: {
+    id: string;
+    name: string;
+    designation?: string | null;
+    userId: string | null;
+    availabilityStatus: string;
+    customStatus: string | null;
+    customStatusEmoji: string | null;
+  }[];
 };
 type FieldName = keyof typeof visitorRegistrationSchema.shape;
 type FormValues = Record<FieldName, string>;
@@ -42,9 +50,53 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
   const [matches, setMatches] = useState<VisitorMatch[]>([]);
   const [lookupOpen, setLookupOpen] = useState(false);
   const [activeMatch, setActiveMatch] = useState(-1);
+  const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
+  const [availabilityUpdates, setAvailabilityUpdates] = useState<Record<string, {
+    availabilityStatus: string;
+    customStatus: string | null;
+    customStatusEmoji: string | null;
+  }>>({});
   const phoneFieldRef = useRef<HTMLDivElement>(null);
   const selectedPhoneRef = useRef<string | null>(null);
   const selected = departments.find((item) => item.id === values.departmentId);
+  const selectedHost = selected?.employees.find((employee) => employee.id === values.hostId);
+
+  useEffect(() => {
+    if (!open || !selected) return;
+    let active = true;
+    fetch(`/api/presence?departmentId=${selected.id}`)
+      .then((response) => response.json())
+      .then((data) => {
+        if (active && Array.isArray(data.onlineUserIds)) setOnlineUserIds(data.onlineUserIds);
+      })
+      .catch(() => {
+        if (active) setOnlineUserIds([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [open, selected?.id]);
+
+  useEffect(() => {
+    const handlePresence = (event: Event) => {
+      const detail = (event as CustomEvent<{ userId: string; departmentId?: string; online: boolean }>).detail;
+      if (detail.departmentId !== selected?.id) return;
+      setOnlineUserIds((current) => detail.online
+        ? current.includes(detail.userId) ? current : [...current, detail.userId]
+        : current.filter((id) => id !== detail.userId));
+    };
+    const handleAvailability = (event: Event) => {
+      const detail = (event as CustomEvent<{ userId: string; departmentId?: string; availabilityStatus: string; customStatus: string | null; customStatusEmoji: string | null }>).detail;
+      if (detail.departmentId !== selected?.id) return;
+      setAvailabilityUpdates((current) => ({ ...current, [detail.userId]: detail }));
+    };
+    window.addEventListener("arrivo:host-presence", handlePresence);
+    window.addEventListener("arrivo:host-availability", handleAvailability);
+    return () => {
+      window.removeEventListener("arrivo:host-presence", handlePresence);
+      window.removeEventListener("arrivo:host-availability", handleAvailability);
+    };
+  }, [selected?.id]);
 
   useEffect(() => {
     const phone = values.phone.trim();
@@ -283,6 +335,13 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                     </option>
                   ))}
                 </SelectField>
+                {selectedHost && (
+                  <HostAvailability
+                    host={selectedHost}
+                    online={Boolean(selectedHost.userId && onlineUserIds.includes(selectedHost.userId))}
+                    update={selectedHost.userId ? availabilityUpdates[selectedHost.userId] : undefined}
+                  />
+                )}
               </div>
               {error && (
                 <p className="error" style={{ marginTop: 15 }}>
@@ -302,6 +361,35 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
         </div>
       )}
     </>
+  );
+}
+
+function HostAvailability({
+  host,
+  online,
+  update,
+}: {
+  host: Department["employees"][number];
+  online: boolean;
+  update?: { availabilityStatus: string; customStatus: string | null; customStatusEmoji: string | null };
+}) {
+  const status = update?.availabilityStatus ?? host.availabilityStatus;
+  const customStatus = update?.customStatus ?? host.customStatus;
+  const customEmoji = update?.customStatusEmoji ?? host.customStatusEmoji;
+  const isAway = status === "AWAY" || status === "CUSTOM";
+  const label = !online
+    ? "Not currently online"
+    : status === "CUSTOM"
+      ? `${customEmoji ? `${customEmoji} ` : ""}${customStatus || "Custom status"}`
+      : status === "AWAY"
+        ? "Away"
+        : "Available";
+
+  return (
+    <div className={`host-availability ${!online ? "offline" : isAway ? "away" : "online"}`} role="status">
+      <span className="presence-dot" aria-hidden="true" />
+      <span><strong>{host.name}</strong> · {label}</span>
+    </div>
   );
 }
 

@@ -28,6 +28,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
     }
 
+    const session = await prisma.userSession.create({ data: { userId: user.id } });
     const token = await signToken({
       userId: user.id,
       name: user.name,
@@ -35,6 +36,10 @@ export async function POST(request: Request) {
       role: user.role,
       designation: user.designation,
       departmentId: user.departmentId,
+      availabilityStatus: user.availabilityStatus,
+      customStatus: user.customStatus,
+      customStatusEmoji: user.customStatusEmoji,
+      sessionId: session.id,
     });
 
     const response = NextResponse.json({

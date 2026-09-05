@@ -17,3 +17,23 @@ export function broadcastVisitStatusChanged(visitData: any) {
     }
   }
 }
+
+export function broadcastUserAvailabilityChanged(user: {
+  id: string;
+  departmentId?: string | null;
+  availabilityStatus: string;
+  customStatus?: string | null;
+  customStatusEmoji?: string | null;
+}) {
+  const g = global as any;
+  if (!g.io) return;
+  const payload = {
+    userId: user.id,
+    departmentId: user.departmentId,
+    availabilityStatus: user.availabilityStatus,
+    customStatus: user.customStatus,
+    customStatusEmoji: user.customStatusEmoji,
+  };
+  g.io.to("reception").emit("user_availability_changed", payload);
+  if (user.departmentId) g.io.to(`department_${user.departmentId}`).emit("user_availability_changed", payload);
+}

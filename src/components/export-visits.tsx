@@ -16,20 +16,22 @@ export function ExportVisits() {
         className="secondary export-button"
         onClick={() => download("excel")}
         aria-label="Export visitor list as Excel"
-        title="Export as Excel"
+        title="Excel Export"
+        data-tooltip="Excel Export"
       >
         <SpreadsheetIcon />
-        <span className="sr-only">Export as Excel</span>
+        <span className="sr-only">Excel Export</span>
       </button>
       <button
         type="button"
         className="secondary export-button"
         onClick={() => download("pdf")}
         aria-label="Export visitor list as PDF"
-        title="Export as PDF"
+        title="PDF Export"
+        data-tooltip="PDF Export"
       >
         <PdfIcon />
-        <span className="sr-only">Export as PDF</span>
+        <span className="sr-only">PDF Export</span>
       </button>
     </div>
   );

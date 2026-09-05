@@ -20,6 +20,15 @@ app.prepare().then(() => {
     },
   });
 
+  const onlineUsers = new Map();
+  global.onlineUserIds = onlineUsers;
+
+  const emitPresence = (userId, departmentId, online) => {
+    const payload = { userId, departmentId, online };
+    io.to("reception").emit("user_presence_changed", payload);
+    if (departmentId) io.to(`department_${departmentId}`).emit("user_presence_changed", payload);
+  };
+
   io.on("connection", (socket) => {
     socket.on("join", (data) => {
       if (!data) return;
@@ -31,6 +40,25 @@ app.prepare().then(() => {
       }
       if (data.userId) {
         socket.join(`user_${data.userId}`);
+        socket.data.userId = data.userId;
+        socket.data.departmentId = data.departmentId;
+        const connections = onlineUsers.get(data.userId) || new Set();
+        const wasOffline = connections.size === 0;
+        connections.add(socket.id);
+        onlineUsers.set(data.userId, connections);
+        if (wasOffline) emitPresence(data.userId, data.departmentId, true);
+      }
+    });
+
+    socket.on("disconnect", () => {
+      const { userId, departmentId } = socket.data;
+      if (!userId) return;
+      const connections = onlineUsers.get(userId);
+      if (!connections) return;
+      connections.delete(socket.id);
+      if (connections.size === 0) {
+        onlineUsers.delete(userId);
+        emitPresence(userId, departmentId, false);
       }
     });
 

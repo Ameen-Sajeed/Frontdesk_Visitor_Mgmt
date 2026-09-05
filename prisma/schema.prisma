@@ -35,10 +35,39 @@ model User {
   password     String
   role         Role        @default(RECEPTIONIST)
   designation  String?
+  availabilityStatus String @default("ACTIVE")
+  customStatus String?
+  customStatusEmoji String?
   departmentId String?
   department   Department? @relation(fields: [departmentId], references: [id])
+  customStatusHistory UserCustomStatus[]
+  sessions     UserSession[]
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
+}
+
+model UserCustomStatus {
+  id        String   @id @default(cuid())
+  userId    String
+  emoji     String
+  text      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, emoji, text])
+  @@index([userId, updatedAt])
+}
+
+model UserSession {
+  id              String    @id @default(cuid())
+  userId          String
+  loginAt         DateTime  @default(now())
+  logoutAt        DateTime?
+  durationSeconds Int?
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, loginAt])
 }
 
 model Department {

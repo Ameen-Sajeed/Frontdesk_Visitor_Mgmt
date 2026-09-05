@@ -10,6 +10,10 @@ export interface AuthUserPayload {
   role: Role;
   designation?: string | null;
   departmentId?: string | null;
+  availabilityStatus?: string;
+  customStatus?: string | null;
+  customStatusEmoji?: string | null;
+  sessionId?: string | null;
 }
 
 const JWT_SECRET = process.env.JWT_SECRET || "frontdesk-jwt-secret-key-2-day-task-2026";
@@ -43,6 +47,10 @@ export async function verifyToken(token: string): Promise<AuthUserPayload | null
       role: payload.role as Role,
       designation: (payload.designation as string) || null,
       departmentId: (payload.departmentId as string) || null,
+      availabilityStatus: (payload.availabilityStatus as string) || "ACTIVE",
+      customStatus: (payload.customStatus as string) || null,
+      customStatusEmoji: (payload.customStatusEmoji as string) || null,
+      sessionId: (payload.sessionId as string) || null,
     };
   } catch {
     return null;

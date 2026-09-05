@@ -135,27 +135,25 @@ export async function getPaginatedDepartmentVisits({
 
   if (tab === "pending") {
     where.status = VisitStatus.WAITING_APPROVAL;
-  } else if (tab === "history") {
-    if (status && status !== "ALL") {
-      where.status = status as VisitStatus;
-    }
+  } else if (status && status !== "ALL") {
+    where.status = status as VisitStatus;
+  }
 
-    const dateFilter = buildDateWhereClause(dateRange, startDate, endDate);
-    if (dateFilter) {
-      where.registeredAt = dateFilter;
-    }
+  const dateFilter = buildDateWhereClause(dateRange, startDate, endDate);
+  if (dateFilter) {
+    where.registeredAt = dateFilter;
+  }
 
-    if (search && search.trim()) {
-      const q = search.trim();
-      where.visitor = {
-        OR: [
-          { fullName: { contains: q, mode: "insensitive" } },
-          { phone: { contains: q, mode: "insensitive" } },
-          { company: { contains: q, mode: "insensitive" } },
-          { designation: { contains: q, mode: "insensitive" } },
-        ],
-      };
-    }
+  if (search && search.trim()) {
+    const q = search.trim();
+    where.visitor = {
+      OR: [
+        { fullName: { contains: q, mode: "insensitive" } },
+        { phone: { contains: q, mode: "insensitive" } },
+        { company: { contains: q, mode: "insensitive" } },
+        { designation: { contains: q, mode: "insensitive" } },
+      ],
+    };
   }
 
   const [totalCount, visits] = await Promise.all([
@@ -181,10 +179,34 @@ export async function getPaginatedDepartmentVisits({
 }
 
 export async function getDepartmentsWithHosts() {
-  return prisma.department.findMany({
-    include: { employees: { orderBy: { name: "asc" } } },
+  const departments = await prisma.department.findMany({
+    include: {
+      employees: { orderBy: { name: "asc" } },
+      users: {
+        select: {
+          id: true,
+          email: true,
+          availabilityStatus: true,
+          customStatus: true,
+          customStatusEmoji: true,
+        },
+      },
+    },
     orderBy: { name: "asc" },
   });
+  return departments.map(({ users, employees, ...department }) => ({
+    ...department,
+    employees: employees.map((employee) => {
+      const user = users.find((item) => item.email === employee.email);
+      return {
+        ...employee,
+        userId: user?.id ?? null,
+        availabilityStatus: user?.availabilityStatus ?? "ACTIVE",
+        customStatus: user?.customStatus ?? null,
+        customStatusEmoji: user?.customStatusEmoji ?? null,
+      };
+    }),
+  }));
 }
 
 export async function createVisit(input: VisitorRegistration) {
@@ -276,7 +298,10 @@ export async function changeVisitStatus(
             : status === VisitStatus.CHECKED_OUT
               ? { checkedOutAt: now }
               : status === VisitStatus.LEFT_WITHOUT_MEETING
-                ? { leftAt: now, leftReason: extraData?.leftReason || "Visitor left without meeting" }
+                ? {
+                    leftAt: now,
+                    leftReason: extraData?.leftReason || "Visitor left without meeting",
+                  }
                 : {};
 
   return prisma.$transaction(async (tx) => {

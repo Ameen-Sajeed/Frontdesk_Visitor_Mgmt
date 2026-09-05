@@ -21,8 +21,15 @@ export async function middleware(request: NextRequest) {
   }
 
   const isAuthPage = pathname === "/login";
-  const isProtectedApi = pathname.startsWith("/api/visits") || pathname.startsWith("/api/visitors") || pathname.startsWith("/api/export") || pathname.startsWith("/api/config");
-  const isProtectedRoute = pathname === "/" || pathname.startsWith("/dashboard") || pathname.startsWith("/department");
+  const isProtectedApi =
+    pathname.startsWith("/api/visits") ||
+    pathname.startsWith("/api/visitors") ||
+    pathname.startsWith("/api/export") ||
+    pathname.startsWith("/api/config") ||
+    pathname.startsWith("/api/profile") ||
+    pathname.startsWith("/api/presence");
+  const isProtectedRoute =
+    pathname === "/" || pathname.startsWith("/dashboard") || pathname.startsWith("/department");
 
   // Handle protected API routes
   if (isProtectedApi && !session) {
@@ -56,5 +63,16 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/dashboard/:path*", "/department/:path*", "/login", "/api/visits/:path*", "/api/visitors/:path*", "/api/export/:path*", "/api/config/:path*"],
+  matcher: [
+    "/",
+    "/dashboard/:path*",
+    "/department/:path*",
+    "/login",
+    "/api/visits/:path*",
+    "/api/visitors/:path*",
+    "/api/export/:path*",
+    "/api/config/:path*",
+    "/api/profile/:path*",
+    "/api/presence/:path*",
+  ],
 };

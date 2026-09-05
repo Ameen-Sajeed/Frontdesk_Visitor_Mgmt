@@ -30,10 +30,7 @@ export async function POST(request: Request) {
     }
 
     if (trimmedConfirm && trimmedPassword !== trimmedConfirm) {
-      return NextResponse.json(
-        { error: "Passwords do not match." },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Passwords do not match." }, { status: 400 });
     }
 
     if (role !== Role.RECEPTIONIST && role !== Role.DEPARTMENT_LEAD) {
@@ -83,11 +80,21 @@ export async function POST(request: Request) {
     if (role === Role.DEPARTMENT_LEAD && targetDeptId) {
       await prisma.employee.upsert({
         where: { email: trimmedEmail },
-        update: { name: trimmedName, departmentId: targetDeptId, designation: trimmedDesignation || null },
-        create: { name: trimmedName, email: trimmedEmail, departmentId: targetDeptId, designation: trimmedDesignation || null },
+        update: {
+          name: trimmedName,
+          departmentId: targetDeptId,
+          designation: trimmedDesignation || null,
+        },
+        create: {
+          name: trimmedName,
+          email: trimmedEmail,
+          departmentId: targetDeptId,
+          designation: trimmedDesignation || null,
+        },
       });
     }
 
+    const session = await prisma.userSession.create({ data: { userId: user.id } });
     const token = await signToken({
       userId: user.id,
       name: user.name,
@@ -95,6 +102,10 @@ export async function POST(request: Request) {
       role: user.role,
       designation: user.designation,
       departmentId: user.departmentId,
+      availabilityStatus: user.availabilityStatus,
+      customStatus: user.customStatus,
+      customStatusEmoji: user.customStatusEmoji,
+      sessionId: session.id,
     });
 
     const response = NextResponse.json(
