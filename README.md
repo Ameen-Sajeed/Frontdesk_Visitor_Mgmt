@@ -1,34 +1,72 @@
-# arriVo — Reception & Visitor Management
+# arriVo
 
-A Stage 1 visitor-management MVP built with Next.js App Router, TypeScript, PostgreSQL, and Prisma.
+A visitor-management workspace for reception teams and department leads. Reception registers visitors and manages check-in/out; department leads approve or reject visitors for their department.
 
-## What it includes
+## Stack
 
-- Reception dashboard with status filter, visitor list, and check-in/out actions.
-- Visitor registration modal with client-side required fields and server-side Zod validation.
-- Department approval queue, ordered by priority then arrival time.
-- A traceable status lifecycle with status-history records and key event timestamps.
-- Seeded HR, Marketing, E-commerce, and Accounts departments with sample hosts.
+Next.js App Router, TypeScript, PostgreSQL, Prisma, and Socket.IO.
+
+## Features
+
+- Role-based reception and department workspaces
+- Visitor registration, approval, check-in, meeting, and checkout workflow
+- Search, filters, pagination, export to Excel/PDF, and visit history
+- Real-time visitor updates and host presence
+- Profile editing, password changes, manual status, and session timing
 
 ## Local setup
 
-1. Install dependencies: `npm install`
-2. Create your environment file: `cp .env.example .env`, then set `DATABASE_URL` to a PostgreSQL connection string.
-3. Create the database schema: `npx prisma migrate dev --name init`
-4. Seed initial data: `npm run db:seed`
-5. Start the app: `npm run dev`
+1. Install dependencies:
 
-Open `http://localhost:3000`. The receptionist dashboard is the home page; the department queue is at `/department`.
+   ```bash
+   npm install
+   ```
 
-## Lifecycle
+2. Create `.env` with a PostgreSQL connection and a strong JWT secret:
 
-New registrations immediately enter `WAITING_APPROVAL`. Department staff can approve or reject. Reception may then check in an approved visitor; check-in can become `IN_MEETING` and then `CHECKED_OUT`. Each change stores a history row and records the appropriate timestamp.
+   ```env
+   DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/reception?schema=public"
+   JWT_SECRET="replace-with-a-long-random-production-secret"
+   ```
 
-## Vercel deployment
+3. Start PostgreSQL, apply every migration, and seed sample data:
 
-1. Create a managed PostgreSQL database (Vercel Postgres, Neon, Supabase, or equivalent).
-2. Add its pooled/production connection as `DATABASE_URL` in Vercel Project Settings.
-3. Deploy the repository. The build command runs `prisma generate` before `next build`.
-4. Run `npx prisma migrate deploy` against the production database, then `npm run db:seed` once if you want the initial departments and hosts.
+   ```bash
+   npx prisma migrate deploy
+   npm run db:seed
+   ```
 
-For a production rollout, add authentication and derive the selected department from the signed-in user rather than the URL parameter.
+4. Start the application:
+
+   ```bash
+   npm run dev
+   ```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+## Sample accounts
+
+The seed uses password `password123` for local development only:
+
+- Reception: `reception@company.test`
+- Department lead: `aisha@company.test` (and the other seeded department emails)
+
+## Useful commands
+
+```bash
+npm run build       # production build and type validation
+npm run db:generate # regenerate Prisma Client
+npx prisma migrate deploy
+npm run db:seed
+```
+
+## Architecture notes
+
+- Authentication is a signed, HTTP-only cookie; access is enforced in middleware and route handlers.
+- Visit transitions and status history are centralized in `src/lib/visits.ts`.
+- The custom Node server owns Socket.IO and broadcasts visitor/presence events.
+- User availability and session data require the latest Prisma migrations before the app starts.
+
+## Deployment
+
+Use a managed PostgreSQL database, configure `DATABASE_URL` and `JWT_SECRET`, run `npx prisma migrate deploy` during release, then start the custom Node server with `npm start`.
