@@ -27,6 +27,7 @@ export default function LoginPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [registered, setRegistered] = useState(false);
 
   useEffect(() => {
     fetch("/api/departments")
@@ -42,6 +43,7 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setRegistered(false);
 
     if (isRegistering && password !== confirmPassword) {
       setError("Passwords do not match. Please verify both fields.");
@@ -68,9 +70,19 @@ export default function LoginPage() {
         throw new Error(data.error || "Authentication failed.");
       }
 
+      if (data.pendingApproval) {
+        setRegistered(true);
+        setIsRegistering(false);
+        setPassword("");
+        setConfirmPassword("");
+        return;
+      }
+
       // Successful auth - redirect based on user role
       const userRole = data.user?.role;
-      if (userRole === "DEPARTMENT_LEAD") {
+      if (userRole === "ADMIN") {
+        window.location.href = "/admin";
+      } else if (userRole === "DEPARTMENT_LEAD") {
         window.location.href = "/department";
       } else {
         window.location.href = "/dashboard";
@@ -87,20 +99,14 @@ export default function LoginPage() {
       <div className="auth-container">
         {/* Brand */}
         <Link href="/" className="auth-brand">
-         arri<i>Vo</i>
+          arri<i>Vo</i>
         </Link>
 
         {/* Intro */}
         <div className="auth-header">
-          <p className="eyebrow">
-            {isRegistering ? "Create your account" : "Welcome back"}
-          </p>
+          <p className="eyebrow">{isRegistering ? "Create your account" : "Welcome back"}</p>
 
-          <h1>
-            {isRegistering
-              ? "Get started with arriVo."
-              : "Sign in to arriVo."}
-          </h1>
+          <h1>{isRegistering ? "Get started with arriVo." : "Sign in to arriVo."}</h1>
 
           <p className="auth-sub">
             {isRegistering
@@ -126,6 +132,12 @@ export default function LoginPage() {
               }}
             >
               {error}
+            </div>
+          )}
+          {registered && (
+            <div className="auth-success-banner" role="status">
+              Registration received. An administrator must approve your account before you can sign
+              in. Please come back and try again later.
             </div>
           )}
 
@@ -231,9 +243,7 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   style={{ paddingRight: "40px" }}
-                  autoComplete={
-                    isRegistering ? "new-password" : "current-password"
-                  }
+                  autoComplete={isRegistering ? "new-password" : "current-password"}
                 />
                 <button
                   type="button"
@@ -254,11 +264,7 @@ export default function LoginPage() {
                   }}
                   title={showPassword ? "Hide password" : "Show password"}
                 >
-                  {showPassword ? (
-                    <EyeOffIcon />
-                  ) : (
-                    <EyeIcon />
-                  )}
+                  {showPassword ? <EyeOffIcon /> : <EyeIcon />}
                 </button>
               </div>
             </div>
@@ -300,11 +306,7 @@ export default function LoginPage() {
                     }}
                     title={showConfirmPassword ? "Hide password" : "Show password"}
                   >
-                    {showConfirmPassword ? (
-                      <EyeOffIcon />
-                    ) : (
-                      <EyeIcon />
-                    )}
+                    {showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />}
                   </button>
                 </div>
               </div>
@@ -316,8 +318,8 @@ export default function LoginPage() {
                   ? "Creating account…"
                   : "Signing in…"
                 : isRegistering
-                ? "Create account"
-                : "Sign in"}
+                  ? "Create account"
+                  : "Sign in"}
             </button>
           </form>
 
@@ -328,14 +330,13 @@ export default function LoginPage() {
           </div>
 
           <p className="auth-switch">
-            {isRegistering
-              ? "Already have an account?"
-              : "Don't have an account?"}{" "}
+            {isRegistering ? "Already have an account?" : "Don't have an account?"}{" "}
             <button
               type="button"
               onClick={() => {
                 setIsRegistering((val) => !val);
                 setError(null);
+                setRegistered(false);
               }}
             >
               {isRegistering ? "Sign in" : "Create account"}
@@ -355,7 +356,16 @@ export default function LoginPage() {
 
 function EyeIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
       <circle cx="12" cy="12" r="3" />
     </svg>
@@ -364,7 +374,16 @@ function EyeIcon() {
 
 function EyeOffIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
       <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
       <path d="M6.61 6.61A13.52 13.52 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />

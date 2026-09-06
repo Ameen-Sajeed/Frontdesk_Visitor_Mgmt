@@ -164,7 +164,15 @@ export function UserNav({ user }: { user?: User | null }) {
     <>
       <nav className="nav">
         <div className="brand">
-          <Link href={user?.role === "DEPARTMENT_LEAD" ? "/department" : "/dashboard"}>
+          <Link
+            href={
+              user?.role === "ADMIN"
+                ? "/admin"
+                : user?.role === "DEPARTMENT_LEAD"
+                  ? "/department"
+                  : "/dashboard"
+            }
+          >
             arri<i>Vo</i>
           </Link>
         </div>

@@ -1,29 +1,42 @@
 "use client";
+
 import { useState } from "react";
 import { VisitStatus } from "@prisma/client";
 import { VisitReasonModal } from "@/components/visit-reason-modal";
 import { Loader } from "@/components/loader";
+
+type VisitAction =
+  | "APPROVE"
+  | "REJECT"
+  | "INSIDE"
+  | "CHECKED_OUT"
+  | "LEFT_WITHOUT_MEETING";
 
 export function VisitActions({
   visitId,
   actions,
 }: {
   visitId: string;
-  actions: { status: VisitStatus; label: string; kind?: "danger" | "secondary" | "primary" }[];
+  actions: { action: VisitAction; label: string; kind?: "danger" | "secondary" | "primary" }[];
 }) {
   const [loading, setLoading] = useState(false);
-  const [pendingStatus, setPendingStatus] = useState<VisitStatus | null>(null);
-  async function update(status: VisitStatus, comment?: string) {
+  const [pendingAction, setPendingAction] = useState<"REJECT" | "LEFT_WITHOUT_MEETING" | null>(null);
+  async function update(action: VisitAction, comment?: string) {
     setLoading(true);
     try {
+      const body =
+        action === "APPROVE" || action === "REJECT"
+          ? { action, ...(action === "REJECT" ? { rejectionReason: comment } : {}) }
+          : {
+              status: action,
+              ...(action === VisitStatus.LEFT_WITHOUT_MEETING ? { leftReason: comment } : {}),
+            };
       const res = await fetch(`/api/visits/${visitId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, ...(status === VisitStatus.REJECTED ? { rejectionReason: comment } : {}), ...(status === VisitStatus.LEFT_WITHOUT_MEETING ? { leftReason: comment } : {}) }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error();
-      // The API emits visit_status_changed, which refreshes connected dashboards.
-      // Avoid a second local refresh that can cause a visible remount/flash.
     } finally {
       setLoading(false);
     }
@@ -32,21 +45,28 @@ export function VisitActions({
     <div className="actions">
       {actions.map((action) => (
         <button
-          key={action.status}
+          key={action.action}
           className={action.kind ?? "secondary"}
           disabled={loading}
-          onClick={() => (action.status === VisitStatus.REJECTED || action.status === VisitStatus.LEFT_WITHOUT_MEETING) ? setPendingStatus(action.status) : update(action.status)}
+          onClick={() =>
+            action.action === "REJECT" || action.action === VisitStatus.LEFT_WITHOUT_MEETING
+              ? setPendingAction(action.action)
+              : update(action.action)
+          }
         >
           {loading ? <Loader label="Saving" /> : action.label}
         </button>
       ))}
-      {pendingStatus && (
+      {pendingAction && (
         <VisitReasonModal
-          status={pendingStatus as "REJECTED" | "LEFT_WITHOUT_MEETING"}
+          action={pendingAction}
           visitId={visitId}
           loading={loading}
-          onCancel={() => setPendingStatus(null)}
-          onSubmit={(reason) => { update(pendingStatus, reason); setPendingStatus(null); }}
+          onCancel={() => setPendingAction(null)}
+          onSubmit={(reason) => {
+            update(pendingAction, reason);
+            setPendingAction(null);
+          }}
         />
       )}
     </div>

@@ -50,6 +50,7 @@ The seed uses password `password123` for local development only:
 
 - Reception: `reception@company.test`
 - Department lead: `aisha@company.test` (and the other seeded department emails)
+- Admin: `admin@company.test`
 
 ## Useful commands
 

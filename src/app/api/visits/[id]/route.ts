@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { VisitStatus } from "@prisma/client";
-import { changeVisitStatus, visitInclude } from "@/lib/visits";
+import { ApprovalStatus, VisitStatus } from "@prisma/client";
+import { changeVisitStatus, decideVisit, visitInclude } from "@/lib/visits";
 import { prisma } from "@/lib/prisma";
 import { broadcastVisitStatusChanged } from "@/lib/socket-emitter";
 import { getAuthSession } from "@/lib/auth";
@@ -9,13 +9,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   try {
     const { id } = await params;
     const body = await request.json();
-    const { status, rejectionReason, leftReason } = body;
-    if (!Object.values(VisitStatus).includes(status)) throw new Error("Invalid visit status.");
+    const { status, action, rejectionReason, leftReason } = body;
     const session = await getAuthSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const current = await prisma.visit.findUnique({ where: { id }, select: { departmentId: true, status: true } });
+    const current = await prisma.visit.findUnique({
+      where: { id },
+      select: { departmentId: true, status: true, approvalStatus: true },
+    });
     if (!current) return NextResponse.json({ error: "Visit not found." }, { status: 404 });
-    const departmentAction = status === VisitStatus.APPROVED || status === VisitStatus.REJECTED;
+    const departmentAction = action === "APPROVE" || action === "REJECT";
     if (departmentAction) {
       if (session.role !== "DEPARTMENT_LEAD" || session.departmentId !== current.departmentId) {
         return NextResponse.json({ error: "You cannot decide this visit." }, { status: 403 });
@@ -23,14 +25,35 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     } else if (session.role !== "RECEPTIONIST") {
       return NextResponse.json({ error: "Only reception can update this visit." }, { status: 403 });
     }
-    if (status === VisitStatus.REJECTED && typeof rejectionReason === "string" && rejectionReason.length > 500) {
+    if (departmentAction && typeof rejectionReason === "string" && rejectionReason.length > 500) {
       throw new Error("Rejection comment is too long.");
     }
-    if (status === VisitStatus.LEFT_WITHOUT_MEETING && typeof leftReason === "string" && leftReason.length > 500) {
+    if (
+      status === VisitStatus.LEFT_WITHOUT_MEETING &&
+      typeof leftReason === "string" &&
+      leftReason.length > 500
+    ) {
       throw new Error("Left-without-meeting reason is too long.");
     }
-    
-    const updatedVisit = await changeVisitStatus(id, status, { rejectionReason, leftReason });
+
+    let updatedVisit;
+    if (departmentAction) {
+      updatedVisit = await decideVisit(
+        id,
+        action === "APPROVE" ? ApprovalStatus.APPROVED : ApprovalStatus.REJECTED,
+        session.userId,
+        rejectionReason,
+      );
+    } else {
+      if (!Object.values(VisitStatus).includes(status)) throw new Error("Invalid visit status.");
+      if (status === VisitStatus.INSIDE && current.approvalStatus !== ApprovalStatus.APPROVED) {
+        return NextResponse.json(
+          { error: "A department lead must approve the visitor first." },
+          { status: 400 },
+        );
+      }
+      updatedVisit = await changeVisitStatus(id, status, session.userId, { leftReason });
+    }
 
     const visitWithDetails = await prisma.visit.findUnique({
       where: { id: updatedVisit.id },

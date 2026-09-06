@@ -22,6 +22,18 @@ export async function POST(request: Request) {
     if (!user) {
       return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
     }
+    if (user.accountStatus === "PENDING") {
+      return NextResponse.json(
+        { error: "Your account is awaiting administrator approval. Please try again later." },
+        { status: 403 },
+      );
+    }
+    if (user.accountStatus === "BLOCKED") {
+      return NextResponse.json(
+        { error: "This account has been blocked. Please contact an administrator." },
+        { status: 403 },
+      );
+    }
 
     const isValidPassword = await verifyPassword(trimmedPassword, user.password);
     if (!isValidPassword) {

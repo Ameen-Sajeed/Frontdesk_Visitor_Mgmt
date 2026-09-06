@@ -13,19 +13,28 @@ enum VisitType {
 }
 
 enum VisitStatus {
-  REGISTERED
-  WAITING_APPROVAL
-  APPROVED
-  REJECTED
-  CHECKED_IN
-  IN_MEETING
+  WAITING
+  INSIDE
   CHECKED_OUT
   LEFT_WITHOUT_MEETING
 }
 
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum Role {
+  ADMIN
   RECEPTIONIST
   DEPARTMENT_LEAD
+}
+
+enum UserAccountStatus {
+  PENDING
+  ACTIVE
+  BLOCKED
 }
 
 model User {
@@ -34,6 +43,7 @@ model User {
   email        String      @unique
   password     String
   role         Role        @default(RECEPTIONIST)
+  accountStatus UserAccountStatus @default(PENDING)
   designation  String?
   availabilityStatus String @default("ACTIVE")
   customStatus String?
@@ -42,6 +52,7 @@ model User {
   department   Department? @relation(fields: [departmentId], references: [id])
   customStatusHistory UserCustomStatus[]
   sessions     UserSession[]
+  visitStatusChanges VisitStatusHistory[] @relation("VisitStatusChangedBy")
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 }
@@ -111,7 +122,8 @@ model Visit {
   hostId            String
   purpose           String
   type              VisitType
-  status            VisitStatus @default(REGISTERED)
+  status            VisitStatus @default(WAITING)
+  approvalStatus    ApprovalStatus @default(PENDING)
   priority          Int         @default(0)
   rejectionReason   String?
   leftReason        String?
@@ -138,9 +150,12 @@ model VisitStatusHistory {
   status    VisitStatus
   createdAt DateTime    @default(now())
   note      String?
+  changedByUserId String?
   visit     Visit       @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  changedBy User?       @relation("VisitStatusChangedBy", fields: [changedByUserId], references: [id], onDelete: SetNull)
 
   @@index([visitId, createdAt])
+  @@index([changedByUserId])
 }
 
 model AppConfig {

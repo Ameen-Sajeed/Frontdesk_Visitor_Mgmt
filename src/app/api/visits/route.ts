@@ -10,8 +10,8 @@ export async function POST(request: Request) {
     if (!session || session.role !== "RECEPTIONIST") {
       return NextResponse.json({ error: "Only reception can register visitors." }, { status: 403 });
     }
-    const createdVisit = await createVisit(await request.json());
-    
+    const createdVisit = await createVisit(await request.json(), session.userId);
+
     // Fetch visit with full relations for real-time notifications
     const visitWithDetails = await prisma.visit.findUnique({
       where: { id: createdVisit.id },

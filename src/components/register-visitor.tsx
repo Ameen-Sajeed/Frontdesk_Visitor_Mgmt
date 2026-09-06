@@ -50,12 +50,19 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
   const [matches, setMatches] = useState<VisitorMatch[]>([]);
   const [lookupOpen, setLookupOpen] = useState(false);
   const [activeMatch, setActiveMatch] = useState(-1);
+  const [returningVisitor, setReturningVisitor] = useState(false);
+  const [detailsConfirmed, setDetailsConfirmed] = useState(false);
   const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
-  const [availabilityUpdates, setAvailabilityUpdates] = useState<Record<string, {
-    availabilityStatus: string;
-    customStatus: string | null;
-    customStatusEmoji: string | null;
-  }>>({});
+  const [availabilityUpdates, setAvailabilityUpdates] = useState<
+    Record<
+      string,
+      {
+        availabilityStatus: string;
+        customStatus: string | null;
+        customStatusEmoji: string | null;
+      }
+    >
+  >({});
   const phoneFieldRef = useRef<HTMLDivElement>(null);
   const selectedPhoneRef = useRef<string | null>(null);
   const selected = departments.find((item) => item.id === values.departmentId);
@@ -79,14 +86,28 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
 
   useEffect(() => {
     const handlePresence = (event: Event) => {
-      const detail = (event as CustomEvent<{ userId: string; departmentId?: string; online: boolean }>).detail;
+      const detail = (
+        event as CustomEvent<{ userId: string; departmentId?: string; online: boolean }>
+      ).detail;
       if (detail.departmentId !== selected?.id) return;
-      setOnlineUserIds((current) => detail.online
-        ? current.includes(detail.userId) ? current : [...current, detail.userId]
-        : current.filter((id) => id !== detail.userId));
+      setOnlineUserIds((current) =>
+        detail.online
+          ? current.includes(detail.userId)
+            ? current
+            : [...current, detail.userId]
+          : current.filter((id) => id !== detail.userId),
+      );
     };
     const handleAvailability = (event: Event) => {
-      const detail = (event as CustomEvent<{ userId: string; departmentId?: string; availabilityStatus: string; customStatus: string | null; customStatusEmoji: string | null }>).detail;
+      const detail = (
+        event as CustomEvent<{
+          userId: string;
+          departmentId?: string;
+          availabilityStatus: string;
+          customStatus: string | null;
+          customStatusEmoji: string | null;
+        }>
+      ).detail;
       if (detail.departmentId !== selected?.id) return;
       setAvailabilityUpdates((current) => ({ ...current, [detail.userId]: detail }));
     };
@@ -118,9 +139,28 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
           setMatches(nextMatches);
           setLookupOpen(nextMatches.length > 0);
           setActiveMatch(-1);
+          const exactMatch = nextMatches.find(
+            (visitor: VisitorMatch) =>
+              visitor.phone.replace(/\D/g, "") === phone.replace(/\D/g, ""),
+          );
+          if (exactMatch) {
+            selectedPhoneRef.current = phone;
+            setValues((current) => ({
+              ...current,
+              fullName: exactMatch.fullName,
+              email: exactMatch.email ?? "",
+              company: exactMatch.company ?? "",
+              designation: exactMatch.designation ?? "",
+            }));
+            setReturningVisitor(true);
+            setDetailsConfirmed(false);
+          }
         }
       } catch {
-        if (isCurrent) { setMatches([]); setLookupOpen(false); }
+        if (isCurrent) {
+          setMatches([]);
+          setLookupOpen(false);
+        }
       }
     }, 300);
     return () => {
@@ -136,6 +176,8 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
     setLookupOpen(false);
     setFieldErrors({});
     setError("");
+    setReturningVisitor(false);
+    setDetailsConfirmed(false);
   }
   function clearFieldError(name: string) {
     setFieldErrors((current) => {
@@ -146,7 +188,10 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
   function updateField(name: FieldName, value: string) {
     if (name === "phone") selectedPhoneRef.current = null;
     setValues((current) => ({ ...current, [name]: value }));
-    if (name === "phone") { setLookupOpen(value.replace(/\D/g, "").length >= 3); setActiveMatch(-1); }
+    if (name === "phone") {
+      setLookupOpen(value.replace(/\D/g, "").length >= 3);
+      setActiveMatch(-1);
+    }
     clearFieldError(name);
   }
   function chooseReturningVisitor(visitor: VisitorMatch) {
@@ -162,6 +207,8 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
     setMatches([]);
     setLookupOpen(false);
     setActiveMatch(-1);
+    setReturningVisitor(true);
+    setDetailsConfirmed(false);
   }
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -176,6 +223,10 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
           ]),
         ),
       );
+      return;
+    }
+    if (returningVisitor && !detailsConfirmed) {
+      setError("Confirm the returning visitor details before registering the visit.");
       return;
     }
     setSaving(true);
@@ -206,6 +257,8 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
           setLookupOpen(false);
           setFieldErrors({});
           setError("");
+          setReturningVisitor(false);
+          setDetailsConfirmed(false);
           setOpen(true);
         }}
       >
@@ -235,14 +288,40 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                 />
                 <div className="field" ref={phoneFieldRef}>
                   <label htmlFor="phone">Phone number</label>
-                  <input id="phone" name="phone" type="text" required value={values.phone} onChange={(event) => updateField("phone", event.target.value)} onFocus={() => matches.length && setLookupOpen(true)} onKeyDown={(event) => {
-                    if (!lookupOpen || !matches.length) return;
-                    if (event.key === "ArrowDown") { event.preventDefault(); setActiveMatch((current) => Math.min(current + 1, matches.length - 1)); }
-                    if (event.key === "ArrowUp") { event.preventDefault(); setActiveMatch((current) => Math.max(current - 1, 0)); }
-                    if (event.key === "Escape") { setLookupOpen(false); }
-                    if (event.key === "Enter" && activeMatch >= 0) { event.preventDefault(); chooseReturningVisitor(matches[activeMatch]); }
-                  }} aria-invalid={Boolean(fieldErrors.phone)} aria-describedby={fieldErrors.phone ? "phone-error" : undefined} />
-                  {fieldErrors.phone && <p className="error" id="phone-error">{fieldErrors.phone}</p>}
+                  <input
+                    id="phone"
+                    name="phone"
+                    type="text"
+                    required
+                    value={values.phone}
+                    onChange={(event) => updateField("phone", event.target.value)}
+                    onFocus={() => matches.length && setLookupOpen(true)}
+                    onKeyDown={(event) => {
+                      if (!lookupOpen || !matches.length) return;
+                      if (event.key === "ArrowDown") {
+                        event.preventDefault();
+                        setActiveMatch((current) => Math.min(current + 1, matches.length - 1));
+                      }
+                      if (event.key === "ArrowUp") {
+                        event.preventDefault();
+                        setActiveMatch((current) => Math.max(current - 1, 0));
+                      }
+                      if (event.key === "Escape") {
+                        setLookupOpen(false);
+                      }
+                      if (event.key === "Enter" && activeMatch >= 0) {
+                        event.preventDefault();
+                        chooseReturningVisitor(matches[activeMatch]);
+                      }
+                    }}
+                    aria-invalid={Boolean(fieldErrors.phone)}
+                    aria-describedby={fieldErrors.phone ? "phone-error" : undefined}
+                  />
+                  {fieldErrors.phone && (
+                    <p className="error" id="phone-error">
+                      {fieldErrors.phone}
+                    </p>
+                  )}
                   {lookupOpen && matches.length > 0 && (
                     <div className="lookup-results" role="listbox" aria-label="Returning visitors">
                       {matches.map((visitor) => (
@@ -251,7 +330,10 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                           type="button"
                           role="option"
                           aria-selected={activeMatch === matches.indexOf(visitor)}
-                          onMouseDown={(event) => { event.preventDefault(); chooseReturningVisitor(visitor); }}
+                          onMouseDown={(event) => {
+                            event.preventDefault();
+                            chooseReturningVisitor(visitor);
+                          }}
                         >
                           <strong>{visitor.fullName}</strong>
                           <span>
@@ -290,7 +372,7 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                   name="type"
                   value={values.type}
                   onChange={(val) => updateField("type", val)}
-                  >
+                >
                   <option value="WALK_IN">Walk-in</option>
                   <option value="APPOINTMENT">Appointment</option>
                 </SelectField>
@@ -338,9 +420,23 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                 {selectedHost && (
                   <HostAvailability
                     host={selectedHost}
-                    online={Boolean(selectedHost.userId && onlineUserIds.includes(selectedHost.userId))}
-                    update={selectedHost.userId ? availabilityUpdates[selectedHost.userId] : undefined}
+                    online={Boolean(
+                      selectedHost.userId && onlineUserIds.includes(selectedHost.userId),
+                    )}
+                    update={
+                      selectedHost.userId ? availabilityUpdates[selectedHost.userId] : undefined
+                    }
                   />
+                )}
+                {returningVisitor && (
+                  <label className="returning-visitor-confirmation full">
+                    <input
+                      type="checkbox"
+                      checked={detailsConfirmed}
+                      onChange={(event) => setDetailsConfirmed(event.target.checked)}
+                    />
+                    <span>Returning visitor found. I have confirmed or updated these details.</span>
+                  </label>
                 )}
               </div>
               {error && (
@@ -371,7 +467,11 @@ function HostAvailability({
 }: {
   host: Department["employees"][number];
   online: boolean;
-  update?: { availabilityStatus: string; customStatus: string | null; customStatusEmoji: string | null };
+  update?: {
+    availabilityStatus: string;
+    customStatus: string | null;
+    customStatusEmoji: string | null;
+  };
 }) {
   const status = update?.availabilityStatus ?? host.availabilityStatus;
   const customStatus = update?.customStatus ?? host.customStatus;
@@ -386,9 +486,14 @@ function HostAvailability({
         : "Available";
 
   return (
-    <div className={`host-availability ${!online ? "offline" : isAway ? "away" : "online"}`} role="status">
+    <div
+      className={`host-availability ${!online ? "offline" : isAway ? "away" : "online"}`}
+      role="status"
+    >
       <span className="presence-dot" aria-hidden="true" />
-      <span><strong>{host.name}</strong> · {label}</span>
+      <span>
+        <strong>{host.name}</strong> · {label}
+      </span>
     </div>
   );
 }

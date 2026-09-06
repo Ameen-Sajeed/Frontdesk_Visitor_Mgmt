@@ -29,7 +29,10 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/api/profile") ||
     pathname.startsWith("/api/presence");
   const isProtectedRoute =
-    pathname === "/" || pathname.startsWith("/dashboard") || pathname.startsWith("/department");
+    pathname === "/" ||
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/department") ||
+    pathname.startsWith("/admin");
 
   // Handle protected API routes
   if (isProtectedApi && !session) {
@@ -38,7 +41,12 @@ export async function middleware(request: NextRequest) {
 
   // Handle /login page access for authenticated users
   if (isAuthPage && session) {
-    const targetUrl = session.role === "DEPARTMENT_LEAD" ? "/department" : "/dashboard";
+    const targetUrl =
+      session.role === "ADMIN"
+        ? "/admin"
+        : session.role === "DEPARTMENT_LEAD"
+          ? "/department"
+          : "/dashboard";
     return NextResponse.redirect(new URL(targetUrl, request.url));
   }
 
@@ -58,6 +66,11 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith("/department") && session?.role === "RECEPTIONIST") {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
+  if (pathname.startsWith("/admin") && session?.role !== "ADMIN") {
+    return NextResponse.redirect(
+      new URL(session?.role === "DEPARTMENT_LEAD" ? "/department" : "/dashboard", request.url),
+    );
+  }
 
   return NextResponse.next();
 }
@@ -67,6 +80,7 @@ export const config = {
     "/",
     "/dashboard/:path*",
     "/department/:path*",
+    "/admin/:path*",
     "/login",
     "/api/visits/:path*",
     "/api/visitors/:path*",

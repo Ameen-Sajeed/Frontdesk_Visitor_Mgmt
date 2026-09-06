@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { AUTH_COOKIE_NAME, hashPassword, signToken } from "@/lib/auth";
+import { hashPassword } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
@@ -94,45 +94,13 @@ export async function POST(request: Request) {
       });
     }
 
-    const session = await prisma.userSession.create({ data: { userId: user.id } });
-    const token = await signToken({
-      userId: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      designation: user.designation,
-      departmentId: user.departmentId,
-      availabilityStatus: user.availabilityStatus,
-      customStatus: user.customStatus,
-      customStatusEmoji: user.customStatusEmoji,
-      sessionId: session.id,
-    });
-
-    const response = NextResponse.json(
+    return NextResponse.json(
       {
         success: true,
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          designation: user.designation,
-          departmentId: user.departmentId,
-        },
+        pendingApproval: true,
       },
       { status: 201 },
     );
-
-    response.cookies.set({
-      name: AUTH_COOKIE_NAME,
-      value: token,
-      httpOnly: true,
-      path: "/",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-    });
-
-    return response;
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Registration failed." },

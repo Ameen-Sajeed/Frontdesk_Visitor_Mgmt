@@ -737,6 +737,20 @@ tbody tr:last-child td {
 .host-availability.offline .presence-dot {
   background: #a3a3a3;
 }
+.returning-visitor-confirmation {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: -2px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.returning-visitor-confirmation input {
+  width: auto;
+  height: auto;
+  margin-top: 2px;
+}
 .user-status-input {
   width: calc(100% - 16px);
   margin: -2px 8px 8px;
@@ -1044,6 +1058,16 @@ tbody tr:last-child td {
   padding: 24px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
 }
+.auth-success-banner {
+  margin-bottom: 16px;
+  border: 1px solid #bde7ca;
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: #effbf3;
+  color: #167442;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
 
 .role-switch {
   display: grid;
@@ -1228,5 +1252,79 @@ tbody tr:last-child td {
 
   .auth-form {
     gap: 15px;
+  }
+  .auth-shell {
+    min-height: 100dvh;
+    padding-top: 18px;
+  }
+  .auth-brand {
+    margin-bottom: 22px;
+  }
+}
+.admin-panel {
+  min-height: 440px;
+}
+.admin-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.admin-tabs button {
+  border: 0;
+  border-radius: 7px;
+  padding: 8px 11px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+}
+.admin-tabs button.active {
+  background: #eef3ff;
+  color: #234cbb;
+}
+.admin-message {
+  margin: 14px 18px 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.admin-content {
+  padding: 20px;
+}
+.admin-add,
+.admin-setting {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.admin-add input {
+  flex: 1;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 11px;
+}
+.department-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 20px;
+}
+.department-grid .stat strong {
+  font-size: 16px;
+}
+.admin-setting {
+  justify-content: space-between;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px;
+}
+@media (max-width: 560px) {
+  .admin-add,
+  .admin-setting {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .admin-setting .actions {
+    flex-wrap: wrap;
   }
 }

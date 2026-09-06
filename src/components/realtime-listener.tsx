@@ -39,7 +39,7 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
   const [reasonAction, setReasonAction] = useState<{
     toastId: string;
     visitId: string;
-    status: "REJECTED" | "LEFT_WITHOUT_MEETING";
+    action: "REJECT" | "LEFT_WITHOUT_MEETING";
   } | null>(null);
   const [actionError, setActionError] = useState("");
 
@@ -100,12 +100,7 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
     // 2. Department -> Reception & Both Dashboards: Visit status updated
     socket.on("visit_status_changed", (visit) => {
       if (user.role === "RECEPTIONIST") {
-        const statusLabel =
-          visit.status === "APPROVED"
-            ? "APPROVED"
-            : visit.status === "REJECTED"
-              ? "REJECTED"
-              : visit.status.replaceAll("_", " ");
+        const statusLabel = visit.status.replaceAll("_", " ");
         const toastId = `toast_${Date.now()}_${visit.id}`;
         setToasts((prev) => [
           {
@@ -146,7 +141,7 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
   const handleToastAction = async (
     toastId: string,
     visitId: string,
-    status: VisitStatus,
+    action: "APPROVE" | "REJECT" | "LEFT_WITHOUT_MEETING",
     reason?: string,
   ) => {
     setActionLoading(visitId);
@@ -155,11 +150,11 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
       const res = await fetch(`/api/visits/${visitId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status,
-          ...(status === VisitStatus.REJECTED ? { rejectionReason: reason } : {}),
-          ...(status === VisitStatus.LEFT_WITHOUT_MEETING ? { leftReason: reason } : {}),
-        }),
+        body: JSON.stringify(
+          action === "APPROVE" || action === "REJECT"
+            ? { action, ...(action === "REJECT" ? { rejectionReason: reason } : {}) }
+            : { status: action, leftReason: reason },
+        ),
       });
       if (!res.ok) throw new Error("Failed to update status.");
       removeToast(toastId);
@@ -273,7 +268,7 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
                   setReasonAction({
                     toastId: toast.id,
                     visitId: toast.visit.id,
-                    status: VisitStatus.REJECTED,
+                    action: "REJECT",
                   })
                 }
                 style={{ flex: 1, padding: "6px 10px", fontSize: "0.8125rem", borderRadius: 6 }}
@@ -283,7 +278,7 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
               <button
                 className="primary"
                 disabled={actionLoading === toast.visit.id}
-                onClick={() => handleToastAction(toast.id, toast.visit.id, VisitStatus.APPROVED)}
+                onClick={() => handleToastAction(toast.id, toast.visit.id, "APPROVE")}
                 style={{ flex: 1, padding: "6px 10px", fontSize: "0.8125rem", borderRadius: 6 }}
               >
                 {actionLoading === toast.visit.id ? <Loader label="Saving" /> : "Approve"}
@@ -306,7 +301,7 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
                   setReasonAction({
                     toastId: toast.id,
                     visitId: toast.visit.id,
-                    status: VisitStatus.LEFT_WITHOUT_MEETING,
+                    action: VisitStatus.LEFT_WITHOUT_MEETING,
                   })
                 }
                 style={{ flex: 1, padding: "6px 10px", fontSize: "0.8125rem", borderRadius: 6 }}
@@ -319,7 +314,7 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
       ))}
       {reasonAction && (
         <VisitReasonModal
-          status={reasonAction.status}
+          action={reasonAction.action}
           visitId={reasonAction.visitId}
           loading={actionLoading === reasonAction.visitId}
           onCancel={() => setReasonAction(null)}
@@ -327,7 +322,7 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
             handleToastAction(
               reasonAction.toastId,
               reasonAction.visitId,
-              reasonAction.status,
+              reasonAction.action,
               reason,
             );
             setReasonAction(null);

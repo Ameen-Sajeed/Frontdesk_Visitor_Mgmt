@@ -1,4 +1,4 @@
-import { VisitStatus, type Prisma } from "@prisma/client";
+import { ApprovalStatus, VisitStatus, type Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { normalizePhoneForLookup } from "@/lib/phone";
 import { visitorRegistrationSchema, type VisitorRegistration } from "@/lib/validation";
@@ -7,7 +7,7 @@ export const visitInclude = {
   visitor: true,
   department: true,
   host: true,
-  history: { orderBy: { createdAt: "asc" } },
+  history: { orderBy: { createdAt: "asc" }, include: { changedBy: { select: { name: true } } } },
 } satisfies Prisma.VisitInclude;
 
 export type VisitWithDetails = Prisma.VisitGetPayload<{ include: typeof visitInclude }>;
@@ -134,7 +134,8 @@ export async function getPaginatedDepartmentVisits({
   const where: Prisma.VisitWhereInput = { departmentId };
 
   if (tab === "pending") {
-    where.status = VisitStatus.WAITING_APPROVAL;
+    where.status = VisitStatus.WAITING;
+    where.approvalStatus = ApprovalStatus.PENDING;
   } else if (status && status !== "ALL") {
     where.status = status as VisitStatus;
   }
@@ -209,7 +210,7 @@ export async function getDepartmentsWithHosts() {
   }));
 }
 
-export async function createVisit(input: VisitorRegistration) {
+export async function createVisit(input: VisitorRegistration, changedByUserId: string) {
   const data = visitorRegistrationSchema.parse(input);
   const host = await prisma.employee.findFirst({
     where: { id: data.hostId, departmentId: data.departmentId },
@@ -252,14 +253,19 @@ export async function createVisit(input: VisitorRegistration) {
         hostId: data.hostId,
         purpose: data.purpose,
         type: data.type,
-        status: VisitStatus.WAITING_APPROVAL,
+        status: VisitStatus.WAITING,
+        approvalStatus: ApprovalStatus.PENDING,
         approvalAskedAt: new Date(),
       },
     });
     await tx.visitStatusHistory.createMany({
       data: [
-        { visitId: visit.id, status: VisitStatus.REGISTERED, note: "Visitor registered" },
-        { visitId: visit.id, status: VisitStatus.WAITING_APPROVAL, note: "Approval requested" },
+        {
+          visitId: visit.id,
+          status: VisitStatus.WAITING,
+          changedByUserId,
+          note: "Visitor logged and waiting for approval",
+        },
       ],
     });
     return visit;
@@ -267,16 +273,14 @@ export async function createVisit(input: VisitorRegistration) {
 }
 
 const transitions: Partial<Record<VisitStatus, VisitStatus[]>> = {
-  REGISTERED: [VisitStatus.WAITING_APPROVAL, VisitStatus.LEFT_WITHOUT_MEETING],
-  WAITING_APPROVAL: [VisitStatus.APPROVED, VisitStatus.REJECTED, VisitStatus.LEFT_WITHOUT_MEETING],
-  APPROVED: [VisitStatus.CHECKED_IN, VisitStatus.LEFT_WITHOUT_MEETING],
-  CHECKED_IN: [VisitStatus.IN_MEETING, VisitStatus.CHECKED_OUT, VisitStatus.LEFT_WITHOUT_MEETING],
-  IN_MEETING: [VisitStatus.CHECKED_OUT],
+  WAITING: [VisitStatus.INSIDE, VisitStatus.LEFT_WITHOUT_MEETING],
+  INSIDE: [VisitStatus.CHECKED_OUT],
 };
 
 export async function changeVisitStatus(
   id: string,
   status: VisitStatus,
+  changedByUserId: string,
   extraData?: { rejectionReason?: string; leftReason?: string },
 ) {
   const current = await prisma.visit.findUniqueOrThrow({ where: { id } });
@@ -287,34 +291,64 @@ export async function changeVisitStatus(
 
   const now = new Date();
   const timestamps: Prisma.VisitUpdateInput =
-    status === VisitStatus.APPROVED
-      ? { decidedAt: now }
-      : status === VisitStatus.REJECTED
-        ? { decidedAt: now, rejectionReason: extraData?.rejectionReason || null }
-        : status === VisitStatus.CHECKED_IN
-          ? { checkedInAt: now }
-          : status === VisitStatus.IN_MEETING
-            ? { meetingStartedAt: now }
-            : status === VisitStatus.CHECKED_OUT
-              ? { checkedOutAt: now }
-              : status === VisitStatus.LEFT_WITHOUT_MEETING
-                ? {
-                    leftAt: now,
-                    leftReason: extraData?.leftReason || "Visitor left without meeting",
-                  }
-                : {};
+    status === VisitStatus.INSIDE
+      ? { meetingStartedAt: now }
+      : status === VisitStatus.CHECKED_OUT
+        ? { checkedOutAt: now }
+        : status === VisitStatus.LEFT_WITHOUT_MEETING
+          ? { leftAt: now, leftReason: extraData?.leftReason || "Visitor left without meeting" }
+          : {};
 
   return prisma.$transaction(async (tx) => {
     const visit = await tx.visit.update({ where: { id }, data: { status, ...timestamps } });
 
     const note =
-      status === VisitStatus.REJECTED && extraData?.rejectionReason
-        ? `Rejected: ${extraData.rejectionReason}`
-        : status === VisitStatus.LEFT_WITHOUT_MEETING && extraData?.leftReason
-          ? `Left without meeting: ${extraData.leftReason}`
-          : `Status changed to ${status.replaceAll("_", " ")}`;
+      status === VisitStatus.LEFT_WITHOUT_MEETING && extraData?.leftReason
+        ? `Left without meeting: ${extraData.leftReason}`
+        : `Status changed to ${status.replaceAll("_", " ")}`;
 
-    await tx.visitStatusHistory.create({ data: { visitId: id, status, note } });
+    await tx.visitStatusHistory.create({ data: { visitId: id, status, note, changedByUserId } });
+    return visit;
+  });
+}
+
+export async function decideVisit(
+  id: string,
+  approvalStatus: "APPROVED" | "REJECTED",
+  changedByUserId: string,
+  rejectionReason?: string,
+) {
+  const current = await prisma.visit.findUniqueOrThrow({ where: { id } });
+  if (current.status !== VisitStatus.WAITING || current.approvalStatus !== ApprovalStatus.PENDING) {
+    throw new Error("This visitor has already been handled.");
+  }
+  const now = new Date();
+  return prisma.$transaction(async (tx) => {
+    const visit = await tx.visit.update({
+      where: { id },
+      data:
+        approvalStatus === ApprovalStatus.REJECTED
+          ? {
+              approvalStatus,
+              status: VisitStatus.LEFT_WITHOUT_MEETING,
+              decidedAt: now,
+              leftAt: now,
+              rejectionReason: rejectionReason || null,
+              leftReason: rejectionReason || "Department unavailable",
+            }
+          : { approvalStatus, decidedAt: now },
+    });
+    await tx.visitStatusHistory.create({
+      data: {
+        visitId: id,
+        status: visit.status,
+        changedByUserId,
+        note:
+          approvalStatus === ApprovalStatus.APPROVED
+            ? "Department approved visitor"
+            : `Department declined visitor${rejectionReason ? `: ${rejectionReason}` : ""}`,
+      },
+    });
     return visit;
   });
 }

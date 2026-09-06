@@ -45,7 +45,7 @@ export default async function DepartmentQueue({
   // Pending count for tab badge
   const pendingCount = departmentId
     ? await prisma.visit.count({
-        where: { departmentId, status: VisitStatus.WAITING_APPROVAL },
+        where: { departmentId, status: VisitStatus.WAITING, approvalStatus: "PENDING" },
       })
     : 0;
 
@@ -124,8 +124,8 @@ export default async function DepartmentQueue({
                           <VisitActions
                             visitId={visit.id}
                             actions={[
-                              { status: VisitStatus.REJECTED, label: "Reject", kind: "danger" },
-                              { status: VisitStatus.APPROVED, label: "Approve", kind: "primary" },
+                              { action: "REJECT", label: "Decline", kind: "danger" },
+                              { action: "APPROVE", label: "Approve", kind: "primary" },
                             ]}
                           />
                           <VisitDetailsModal visit={visit} />

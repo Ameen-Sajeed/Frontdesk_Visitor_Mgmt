@@ -29,7 +29,7 @@ async function main() {
 
     await prisma.user.upsert({
       where: { email },
-      update: { designation },
+      update: { designation, accountStatus: "ACTIVE" },
       create: {
         name,
         email,
@@ -37,6 +37,7 @@ async function main() {
         role: Role.DEPARTMENT_LEAD,
         designation,
         departmentId,
+        accountStatus: "ACTIVE",
       },
     });
   }
@@ -51,6 +52,19 @@ async function main() {
       password: defaultPasswordHash,
       role: Role.RECEPTIONIST,
       designation: "Receptionist",
+      accountStatus: "ACTIVE",
+    },
+  });
+  await prisma.user.upsert({
+    where: { email: "admin@company.test" },
+    update: { accountStatus: "ACTIVE", role: Role.ADMIN },
+    create: {
+      name: "arriVo Admin",
+      email: "admin@company.test",
+      password: defaultPasswordHash,
+      role: Role.ADMIN,
+      designation: "Administrator",
+      accountStatus: "ACTIVE",
     },
   });
   if (await prisma.visit.count()) return;
@@ -72,16 +86,16 @@ async function main() {
       hostId: host.id,
       purpose: "Interview",
       type: VisitType.APPOINTMENT,
-      status: VisitStatus.WAITING_APPROVAL,
+      status: VisitStatus.WAITING,
       approvalAskedAt: new Date(),
     },
   });
   await prisma.visitStatusHistory.createMany({
     data: [
-      { visitId: visit.id, status: VisitStatus.REGISTERED },
+      { visitId: visit.id, status: VisitStatus.WAITING },
       {
         visitId: visit.id,
-        status: VisitStatus.WAITING_APPROVAL,
+        status: VisitStatus.WAITING,
         note: "Awaiting department approval",
       },
     ],
