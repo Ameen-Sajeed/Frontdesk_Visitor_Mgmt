@@ -292,7 +292,7 @@ export async function changeVisitStatus(
   const now = new Date();
   const timestamps: Prisma.VisitUpdateInput =
     status === VisitStatus.INSIDE
-      ? { meetingStartedAt: now }
+      ? { checkedInAt: now, meetingStartedAt: now }
       : status === VisitStatus.CHECKED_OUT
         ? { checkedOutAt: now }
         : status === VisitStatus.LEFT_WITHOUT_MEETING

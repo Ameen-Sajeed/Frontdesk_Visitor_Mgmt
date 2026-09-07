@@ -5,6 +5,7 @@ import { UserNav } from "@/components/user-nav";
 import { RegisterVisitor } from "@/components/register-visitor";
 import { StatusBadge } from "@/components/status-badge";
 import { VisitActions } from "@/components/visit-actions";
+import { NotifyDepartmentButton } from "@/components/notify-department-button";
 import { QueryFilter } from "@/components/query-filter";
 import { DateFilter } from "@/components/date-filter";
 import { Pagination } from "@/components/pagination";
@@ -117,7 +118,13 @@ export default async function Dashboard({
                     {visits.map((visit) => (
                       <tr key={visit.id}>
                         <td>
-                          <div className="visitor">{visit.visitor.fullName}</div>
+                          <div className="visitor visitor-with-reminder">
+                            <span>{visit.visitor.fullName}</span>
+                            {visit.status === VisitStatus.WAITING &&
+                              visit.approvalStatus === "PENDING" && (
+                                <NotifyDepartmentButton visitId={visit.id} />
+                              )}
+                          </div>
                           <div className="small">
                             {visit.visitor.designation ? `${visit.visitor.designation} · ` : ""}
                             {visit.visitor.company || visit.visitor.phone}

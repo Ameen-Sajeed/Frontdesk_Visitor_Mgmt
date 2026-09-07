@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { io, Socket } from "socket.io-client";
 import { VisitStatus } from "@prisma/client";
 import { VisitReasonModal } from "@/components/visit-reason-modal";
+import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
 import { Loader } from "@/components/loader";
 
 interface RealtimeListenerProps {
@@ -30,6 +31,7 @@ interface ToastNotification {
     host: { name: string };
   };
   message: string;
+  isReminder?: boolean;
 }
 
 export function RealtimeListener({ user }: RealtimeListenerProps) {
@@ -40,6 +42,12 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
     toastId: string;
     visitId: string;
     action: "REJECT" | "LEFT_WITHOUT_MEETING";
+  } | null>(null);
+  const [confirmation, setConfirmation] = useState<{
+    toastId: string;
+    visitId: string;
+    action: "APPROVE" | "REJECT" | "LEFT_WITHOUT_MEETING";
+    reason?: string;
   } | null>(null);
   const [actionError, setActionError] = useState("");
 
@@ -87,7 +95,10 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
             id: toastId,
             type: "new_visitor",
             visit,
-            message: `New visitor waiting for approval: ${visit.visitor.fullName}`,
+            isReminder: Boolean(visit.isReminder),
+            message: visit.isReminder
+              ? `Reminder: ${visit.visitor.fullName} is still waiting for approval.`
+              : `New visitor waiting for approval: ${visit.visitor.fullName}`,
           },
           ...prev,
         ]);
@@ -166,7 +177,7 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
     }
   };
 
-  if (toasts.length === 0 && !reasonAction) return null;
+  if (toasts.length === 0 && !reasonAction && !confirmation) return null;
 
   return (
     <div
@@ -222,7 +233,9 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
               />
               <strong style={{ fontSize: "0.875rem" }}>
                 {toast.type === "new_visitor"
-                  ? "New Visitor Waiting"
+                  ? toast.isReminder
+                    ? "Visitor Reminder"
+                    : "New Visitor Waiting"
                   : toast.type === "delayed"
                     ? "Waiting too long"
                     : "Visitor Status Updated"}
@@ -257,6 +270,12 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
             Meeting <strong>{toast.visit.host.name}</strong> ({toast.visit.department.name}) ·{" "}
             {toast.visit.purpose}
           </div>
+          {toast.type === "new_visitor" && (
+            <div style={{ fontSize: "0.75rem", color: "var(--muted, #64748b)" }}>
+              Visitor: <strong>{toast.visit.visitor.fullName}</strong>
+              {toast.visit.visitor.company ? ` · ${toast.visit.visitor.company}` : ""} · {toast.visit.visitor.phone}
+            </div>
+          )}
 
           {/* Quick Action Buttons directly inside Toast for Department Users */}
           {toast.type === "new_visitor" && user?.role === "DEPARTMENT_LEAD" && (
@@ -278,7 +297,13 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
               <button
                 className="primary"
                 disabled={actionLoading === toast.visit.id}
-                onClick={() => handleToastAction(toast.id, toast.visit.id, "APPROVE")}
+                onClick={() =>
+                  setConfirmation({
+                    toastId: toast.id,
+                    visitId: toast.visit.id,
+                    action: "APPROVE",
+                  })
+                }
                 style={{ flex: 1, padding: "6px 10px", fontSize: "0.8125rem", borderRadius: 6 }}
               >
                 {actionLoading === toast.visit.id ? <Loader label="Saving" /> : "Approve"}
@@ -319,13 +344,31 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
           loading={actionLoading === reasonAction.visitId}
           onCancel={() => setReasonAction(null)}
           onSubmit={(reason) => {
-            handleToastAction(
-              reasonAction.toastId,
-              reasonAction.visitId,
-              reasonAction.action,
-              reason,
-            );
+            setConfirmation({ ...reasonAction, reason });
             setReasonAction(null);
+          }}
+        />
+      )}
+      {confirmation && (
+        <ConfirmActionDialog
+          title={confirmation.action === "APPROVE" ? "Approve visitor?" : confirmation.action === "REJECT" ? "Reject visitor?" : "Mark visitor as left?"}
+          message={
+            confirmation.action === "APPROVE"
+              ? "Reception will be notified that this visitor is approved."
+              : "This visitor's status will be updated."
+          }
+          confirmLabel={confirmation.action === "APPROVE" ? "Approve" : confirmation.action === "REJECT" ? "Reject" : "Mark left"}
+          danger={confirmation.action !== "APPROVE"}
+          loading={actionLoading === confirmation.visitId}
+          onCancel={() => setConfirmation(null)}
+          onConfirm={async () => {
+            await handleToastAction(
+              confirmation.toastId,
+              confirmation.visitId,
+              confirmation.action,
+              confirmation.reason,
+            );
+            setConfirmation(null);
           }}
         />
       )}

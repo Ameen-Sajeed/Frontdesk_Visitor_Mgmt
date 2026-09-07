@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
 import { Loader } from "@/components/loader";
 
 type User = {
@@ -30,6 +31,10 @@ export function AdminWorkspace({
   const [minutes, setMinutes] = useState(waitThreshold);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [pendingUserUpdate, setPendingUserUpdate] = useState<{
+    user: User;
+    accountStatus: string;
+  } | null>(null);
   async function updateUser(userId: string, accountStatus: string) {
     setSaving(true);
     setMessage("");
@@ -143,7 +148,7 @@ export function AdminWorkspace({
                         <button
                           className="primary"
                           disabled={saving}
-                          onClick={() => updateUser(user.id, "ACTIVE")}
+                          onClick={() => setPendingUserUpdate({ user, accountStatus: "ACTIVE" })}
                         >
                           Approve
                         </button>
@@ -152,7 +157,7 @@ export function AdminWorkspace({
                         <button
                           className="danger"
                           disabled={saving}
-                          onClick={() => updateUser(user.id, "BLOCKED")}
+                          onClick={() => setPendingUserUpdate({ user, accountStatus: "BLOCKED" })}
                         >
                           Block
                         </button>
@@ -213,6 +218,20 @@ export function AdminWorkspace({
             </div>
           </div>
         </div>
+      )}
+      {pendingUserUpdate && (
+        <ConfirmActionDialog
+          title={pendingUserUpdate.accountStatus === "ACTIVE" ? "Approve user?" : "Block user?"}
+          message={`${pendingUserUpdate.user.name} will ${pendingUserUpdate.accountStatus === "ACTIVE" ? "be able to access" : "no longer be able to access"} the workspace.`}
+          confirmLabel={pendingUserUpdate.accountStatus === "ACTIVE" ? "Approve" : "Block"}
+          danger={pendingUserUpdate.accountStatus === "BLOCKED"}
+          loading={saving}
+          onCancel={() => setPendingUserUpdate(null)}
+          onConfirm={async () => {
+            await updateUser(pendingUserUpdate.user.id, pendingUserUpdate.accountStatus);
+            setPendingUserUpdate(null);
+          }}
+        />
       )}
     </section>
   );

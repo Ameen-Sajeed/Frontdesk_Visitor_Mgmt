@@ -409,6 +409,78 @@ tbody tr:last-child td {
 .reason-dialog {
   width: min(420px, 100%);
 }
+.confirmation-overlay {
+  z-index: 10000;
+}
+.confirmation-dialog {
+  width: min(380px, 100%);
+}
+.confirmation-dialog-head {
+  padding: 18px 20px;
+}
+.confirmation-dialog-head h2 {
+  font-size: 17px;
+}
+.confirmation-dialog-body {
+  padding: 18px 20px 20px;
+}
+.confirmation-dialog-body p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.visitor-reminder {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  line-height: 1;
+}
+.visitor-with-reminder {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.reminder-button {
+  position: relative;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #bcd0ff;
+  border-radius: 6px;
+  background: #eef3ff;
+  color: #234cbb;
+  font-size: 12px;
+}
+.reminder-button:hover:not(:disabled) {
+  background: #e4edff;
+}
+.reminder-button::after {
+  position: absolute;
+  z-index: 4;
+  top: calc(100% + 7px);
+  left: 50%;
+  padding: 5px 7px;
+  border-radius: 5px;
+  background: var(--ink);
+  color: white;
+  content: attr(data-tooltip);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -3px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  white-space: nowrap;
+}
+.reminder-button:hover::after,
+.reminder-button:focus-visible::after {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
 .reason-dialog-head {
   padding: 18px 20px;
 }

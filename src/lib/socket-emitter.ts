@@ -8,6 +8,16 @@ export function broadcastVisitCreated(visitData: any) {
   }
 }
 
+export function broadcastVisitorReminder(visitData: any) {
+  const g = global as any;
+  if (g.io && visitData?.departmentId) {
+    g.io.to(`department_${visitData.departmentId}`).emit("new_visitor_registered", {
+      ...visitData,
+      isReminder: true,
+    });
+  }
+}
+
 export function broadcastVisitStatusChanged(visitData: any) {
   const g = global as any;
   if (g.io) {
