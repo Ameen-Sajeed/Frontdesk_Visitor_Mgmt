@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
 import { Loader } from "@/components/loader";
+import { OperationsChart } from "@/components/operations-chart";
 
 type User = {
   id: string;
@@ -15,17 +16,30 @@ type User = {
   departmentName?: string | null;
 };
 type Department = { id: string; name: string; _count: { users: number; employees: number } };
+type ChartItem = { label: string; value: number };
+type ResponseMetric = {
+  label: string;
+  averageMinutes: number;
+  decisions: number;
+  rejected: number;
+};
 
 export function AdminWorkspace({
   initialUsers,
   initialDepartments,
   waitThreshold,
+  usersByDepartment,
+  userAccessSummary,
+  responseMetrics,
 }: {
   initialUsers: User[];
   initialDepartments: Department[];
   waitThreshold: string;
+  usersByDepartment: ChartItem[];
+  userAccessSummary: ChartItem[];
+  responseMetrics: ResponseMetric[];
 }) {
-  const [tab, setTab] = useState<"users" | "departments" | "settings">("users");
+  const [tab, setTab] = useState<"dashboard" | "users" | "departments" | "settings">("users");
   const [users, setUsers] = useState(initialUsers);
   const [departments, setDepartments] = useState(initialDepartments);
   const [departmentName, setDepartmentName] = useState("");
@@ -162,7 +176,7 @@ export function AdminWorkspace({
   return (
     <section className="panel admin-panel">
       <div className="admin-tabs">
-        {(["users", "departments", "settings"] as const).map((item) => (
+        {(["dashboard", "users", "departments", "settings"] as const).map((item) => (
           <button
             key={item}
             type="button"
@@ -177,6 +191,42 @@ export function AdminWorkspace({
         ))}
       </div>
       {message && <p className="admin-message">{message}</p>}
+      {tab === "dashboard" && (
+        <div className="admin-content">
+          <div className="toolbar">
+            <div>
+              <h2>Department insights</h2>
+              <p className="small">A department-level view of user access and visitor responses.</p>
+            </div>
+          </div>
+          <section className="operations-dashboard admin-dashboard-charts">
+            <OperationsChart title="Users by department" data={usersByDepartment} />
+            <OperationsChart title="User access" data={userAccessSummary} />
+            <OperationsChart
+              title="Average approval time by department"
+              data={responseMetrics.map((metric) => ({
+                label: metric.label,
+                value: metric.averageMinutes,
+              }))}
+              formatValue={(minutes) => `${minutes}m`}
+            />
+            <OperationsChart
+              title="Approval decisions by department"
+              data={responseMetrics.map((metric) => ({
+                label: metric.label,
+                value: metric.decisions,
+              }))}
+            />
+            <OperationsChart
+              title="Rejected requests by department"
+              data={responseMetrics.map((metric) => ({
+                label: metric.label,
+                value: metric.rejected,
+              }))}
+            />
+          </section>
+        </div>
+      )}
       {tab === "users" && (
         <div className="admin-content">
           <div className="toolbar admin-user-toolbar">
@@ -198,47 +248,55 @@ export function AdminWorkspace({
                 </tr>
               </thead>
               <tbody>
-                {users.map((user) => (
-                  console.log(user),
-                  <tr key={user.id}>
-                    <td>
-                      <div className="visitor">{user.name}</div>
-                      <div className="small">{user.email}</div>
-                    </td>
-                    <td>{user.employeeId}</td>
-                    <td>{user.designation}</td>
-                    <td>{user.departmentName ?? "—"}</td>
-                    <td>
-                      <span
-                        className={`badge ${user.accountStatus === "ACTIVE" ? "approved" : user.accountStatus === "BLOCKED" ? "rejected" : "waiting"}`}
-                      >
-                        {user.accountStatus.toLowerCase()}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="actions">
-                        {user.accountStatus !== "ACTIVE" && (
-                          <button
-                            className="primary"
-                            disabled={saving}
-                            onClick={() => setPendingUserUpdate({ user, accountStatus: "ACTIVE" })}
+                {users.map(
+                  (user) => (
+                    console.log(user),
+                    (
+                      <tr key={user.id}>
+                        <td>
+                          <div className="visitor">{user.name}</div>
+                          <div className="small">{user.email}</div>
+                        </td>
+                        <td>{user.employeeId}</td>
+                        <td>{user.designation}</td>
+                        <td>{user.departmentName ?? "—"}</td>
+                        <td>
+                          <span
+                            className={`badge ${user.accountStatus === "ACTIVE" ? "approved" : user.accountStatus === "BLOCKED" ? "rejected" : "waiting"}`}
                           >
-                            Approve
-                          </button>
-                        )}
-                        {user.accountStatus !== "BLOCKED" && (
-                          <button
-                            className="danger"
-                            disabled={saving}
-                            onClick={() => setPendingUserUpdate({ user, accountStatus: "BLOCKED" })}
-                          >
-                            Block
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                            {user.accountStatus.toLowerCase()}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="actions">
+                            {user.accountStatus !== "ACTIVE" && (
+                              <button
+                                className="primary"
+                                disabled={saving}
+                                onClick={() =>
+                                  setPendingUserUpdate({ user, accountStatus: "ACTIVE" })
+                                }
+                              >
+                                Approve
+                              </button>
+                            )}
+                            {user.accountStatus !== "BLOCKED" && (
+                              <button
+                                className="danger"
+                                disabled={saving}
+                                onClick={() =>
+                                  setPendingUserUpdate({ user, accountStatus: "BLOCKED" })
+                                }
+                              >
+                                Block
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  ),
+                )}
               </tbody>
             </table>
           </div>
@@ -377,7 +435,8 @@ export function AdminWorkspace({
                   </label>
                   <label className="field">
                     <span className="small">Role</span>
-                    <select className="small"
+                    <select
+                      className="small"
                       value={newUser.role}
                       onChange={(event) =>
                         setNewUser((user) => ({
@@ -388,7 +447,9 @@ export function AdminWorkspace({
                         }))
                       }
                     >
-                      <option className="small" value="RECEPTIONIST">Receptionist</option>
+                      <option className="small" value="RECEPTIONIST">
+                        Receptionist
+                      </option>
                       <option value="DEPARTMENT_LEAD">Department user</option>
                       <option value="ADMIN">Admin</option>
                     </select>

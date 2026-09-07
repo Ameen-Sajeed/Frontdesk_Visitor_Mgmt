@@ -3,12 +3,12 @@ import { getAuthSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { UserNav } from "@/components/user-nav";
 import { AdminWorkspace } from "@/components/admin-workspace";
-import { OperationsChart } from "@/components/operations-chart";
+import { getDepartmentResponseMetrics } from "@/lib/dashboard";
 
 export default async function AdminPage() {
   const session = await getAuthSession();
   if (session?.role !== "ADMIN") redirect("/login");
-  const [users, departments, config] = await Promise.all([
+  const [users, departments, config, responseMetrics] = await Promise.all([
     prisma.user.findMany({
       include: { department: { select: { name: true } } },
       orderBy: [{ accountStatus: "asc" }, { createdAt: "desc" }],
@@ -18,6 +18,7 @@ export default async function AdminPage() {
       orderBy: { name: "asc" },
     }),
     prisma.appConfig.findUnique({ where: { key: "wait_threshold_minutes" } }),
+    getDepartmentResponseMetrics(),
   ]);
   const usersByDepartment = departments.map((department) => ({
     label: department.name,
@@ -38,10 +39,6 @@ export default async function AdminPage() {
           <p className="sub">Approve users, keep departments organised, and set visitor alerts.</p>
         </div>
       </section>
-      <section className="operations-dashboard">
-        <OperationsChart title="Users by department" data={usersByDepartment} />
-        <OperationsChart title="User access" data={userAccessSummary} />
-      </section>
       <AdminWorkspace
         initialUsers={users.map(({ password, department, ...user }) => ({
           ...user,
@@ -49,6 +46,9 @@ export default async function AdminPage() {
         }))}
         initialDepartments={departments}
         waitThreshold={config?.value ?? "30"}
+        usersByDepartment={usersByDepartment}
+        userAccessSummary={userAccessSummary}
+        responseMetrics={responseMetrics}
       />
     </main>
   );

@@ -1,6 +1,14 @@
 type ChartItem = { label: string; value: number };
 
-export function OperationsChart({ title, data }: { title: string; data: ChartItem[] }) {
+export function OperationsChart({
+  title,
+  data,
+  formatValue = (value) => String(value),
+}: {
+  title: string;
+  data: ChartItem[];
+  formatValue?: (value: number) => string;
+}) {
   const maximum = Math.max(1, ...data.map((item) => item.value));
   return (
     <section className="operations-chart" aria-label={title}>
@@ -15,7 +23,7 @@ export function OperationsChart({ title, data }: { title: string; data: ChartIte
                 style={{ width: `${(item.value / maximum) * 100}%` }}
               />
             </div>
-            <strong>{item.value}</strong>
+            <strong>{formatValue(item.value)}</strong>
           </div>
         ))}
       </div>

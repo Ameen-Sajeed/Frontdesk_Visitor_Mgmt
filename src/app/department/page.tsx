@@ -16,8 +16,8 @@ import { RealtimeListener } from "@/components/realtime-listener";
 import { formatDateTime } from "@/lib/timing";
 import { ExportVisits } from "@/components/export-visits";
 import { TableLoadingIndicator, TableNavigationProvider } from "@/components/table-navigation";
-import { getVisitDashboardData } from "@/lib/dashboard";
-import { OperationsChart } from "@/components/operations-chart";
+import { getDepartmentResponseMetrics, getVisitDashboardData } from "@/lib/dashboard";
+import { DepartmentInsights } from "@/components/department-insights";
 
 export default async function DepartmentQueue({
   searchParams,
@@ -83,7 +83,7 @@ export default async function DepartmentQueue({
       : { visits: [], totalCount: 0, page: 1, totalPages: 1, limit: 10 };
 
   const { visits, totalCount, totalPages } = paginatedData;
-  const [meetings, forwardDestinations, dashboardData] = currentHost
+  const [meetings, forwardDestinations, dashboardData, responseMetrics] = currentHost
     ? await Promise.all([
         prisma.visit.findMany({
           where: {
@@ -107,9 +107,10 @@ export default async function DepartmentQueue({
           include: { employees: { orderBy: { name: "asc" } } },
           orderBy: { name: "asc" },
         }),
-        getVisitDashboardData({ departmentId: departmentId!, hostId: currentHost.id }),
+        getVisitDashboardData({ departmentId: departmentId! }),
+        getDepartmentResponseMetrics(departmentId!),
       ])
-    : [[], [], { statusData: [], dailyData: [] }];
+    : [[], [], { statusData: [], dailyData: [] }, []];
   const meetingsCount = meetings.length;
 
   return (
@@ -130,10 +131,11 @@ export default async function DepartmentQueue({
             </p>
           </div>
         </section>
-        <section className="operations-dashboard">
-          <OperationsChart title="My visitor status" data={dashboardData.statusData} />
-          <OperationsChart title="My visits in the last 7 days" data={dashboardData.dailyData} />
-        </section>
+        <DepartmentInsights
+          statusData={dashboardData.statusData}
+          dailyData={dashboardData.dailyData}
+          responseMetrics={responseMetrics}
+        />
 
         <section className="panel">
           <DepartmentTabs
