@@ -15,8 +15,10 @@ import { formatDateTime } from "@/lib/timing";
 import { SearchFilter } from "@/components/search-filter";
 import { ExportVisits } from "@/components/export-visits";
 import { TableLoadingIndicator, TableNavigationProvider } from "@/components/table-navigation";
-import { ForwardRequests } from "@/components/forward-requests";
+import { ForwardRequestAssign } from "@/components/forward-requests";
 import { prisma } from "@/lib/prisma";
+import { getVisitDashboardData } from "@/lib/dashboard";
+import { ReceptionInsights } from "@/components/reception-insights";
 
 export default async function Dashboard({
   searchParams,
@@ -33,7 +35,7 @@ export default async function Dashboard({
   const { status, search, dateRange, startDate, endDate, page } = await searchParams;
   const pageNum = Number(page) || 1;
 
-  const [session, paginatedData, departments, forwardRequests] = await Promise.all([
+  const [session, paginatedData, departments, forwardRequests, dashboardData] = await Promise.all([
     getAuthSession(),
     getPaginatedReceptionVisits({
       status,
@@ -52,6 +54,7 @@ export default async function Dashboard({
       },
       orderBy: { requestedAt: "asc" },
     }),
+    getVisitDashboardData(),
   ]);
 
   const { visits, totalCount, totalPages } = paginatedData;
@@ -63,6 +66,9 @@ export default async function Dashboard({
         include: { employees: { orderBy: { name: "asc" } } },
       }),
     })),
+  );
+  const forwardingByVisit = Object.fromEntries(
+    forwardingRequests.map((request) => [request.visitId, request]),
   );
 
   const waiting = visits.filter((v) => v.status === VisitStatus.WAITING).length;
@@ -92,8 +98,10 @@ export default async function Dashboard({
             value={visits.filter((v) => v.status === VisitStatus.CHECKED_OUT).length}
           />
         </section>
-
-        <ForwardRequests requests={forwardingRequests} />
+        <ReceptionInsights
+          statusData={dashboardData.statusData}
+          dailyData={dashboardData.dailyData}
+        />
 
         <section className="panel">
           <div className="toolbar" style={{ flexWrap: "wrap", gap: 12 }}>
@@ -163,11 +171,16 @@ export default async function Dashboard({
                         </td>
                         <td>
                           <StatusBadge status={visit.status} />
+                          {forwardingByVisit[visit.id] && (
+                            <div className="small forward-status">Forwarded to Reception</div>
+                          )}
                         </td>
                         <td>{formatDateTime(visit.registeredAt)}</td>
                         <td>
-                          {visit.status === VisitStatus.WAITING &&
-                          visit.approvalStatus === "APPROVED" ? (
+                          {forwardingByVisit[visit.id] ? (
+                            <ForwardRequestAssign request={forwardingByVisit[visit.id]} />
+                          ) : visit.status === VisitStatus.WAITING &&
+                            visit.approvalStatus === "APPROVED" ? (
                             <VisitActions
                               visitId={visit.id}
                               actions={[

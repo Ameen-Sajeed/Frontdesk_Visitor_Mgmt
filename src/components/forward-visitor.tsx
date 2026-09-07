@@ -18,7 +18,7 @@ export function ForwardVisitor({
 }) {
   const [open, setOpen] = useState(false);
   const [departmentId, setDepartmentId] = useState("");
-  const [suggestedHostIds, setSuggestedHostIds] = useState<string[]>([]);
+  const [suggestedHostId, setSuggestedHostId] = useState("");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -27,7 +27,7 @@ export function ForwardVisitor({
   function close() {
     setOpen(false);
     setDepartmentId("");
-    setSuggestedHostIds([]);
+    setSuggestedHostId("");
     setNote("");
     setError("");
   }
@@ -39,7 +39,11 @@ export function ForwardVisitor({
       const response = await fetch(`/api/visits/${visitId}/forward`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ toDepartmentId: departmentId, suggestedHostIds, note }),
+        body: JSON.stringify({
+          toDepartmentId: departmentId,
+          suggestedHostIds: suggestedHostId ? [suggestedHostId] : [],
+          note,
+        }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
@@ -76,7 +80,7 @@ export function ForwardVisitor({
                   value={departmentId}
                   onChange={(event) => {
                     setDepartmentId(event.target.value);
-                    setSuggestedHostIds([]);
+                    setSuggestedHostId("");
                   }}
                   required
                 >
@@ -89,32 +93,24 @@ export function ForwardVisitor({
                 </select>
               </label>
               {selectedDepartment && (
-                <fieldset className="forward-suggestions">
-                  <legend>
-                    Suggested people <em>(optional)</em>
-                  </legend>
-                  {selectedDepartment.employees.length ? (
-                    selectedDepartment.employees.map((employee) => (
-                      <label key={employee.id}>
-                        <input
-                          type="checkbox"
-                          checked={suggestedHostIds.includes(employee.id)}
-                          onChange={() =>
-                            setSuggestedHostIds((ids) =>
-                              ids.includes(employee.id)
-                                ? ids.filter((id) => id !== employee.id)
-                                : [...ids, employee.id],
-                            )
-                          }
-                        />
+                <label className="reason-field">
+                  <span>
+                    Suggested person <em>(optional)</em>
+                  </span>
+                  <select
+                    className="reason-select"
+                    value={suggestedHostId}
+                    onChange={(event) => setSuggestedHostId(event.target.value)}
+                  >
+                    <option value="">Let Reception choose</option>
+                    {selectedDepartment.employees.map((employee) => (
+                      <option key={employee.id} value={employee.id}>
                         {employee.name}
                         {employee.designation ? ` · ${employee.designation}` : ""}
-                      </label>
-                    ))
-                  ) : (
-                    <p className="small">No hosts are available in this department.</p>
-                  )}
-                </fieldset>
+                      </option>
+                    ))}
+                  </select>
+                </label>
               )}
               <label className="reason-field">
                 <span>

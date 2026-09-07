@@ -16,6 +16,8 @@ import { RealtimeListener } from "@/components/realtime-listener";
 import { formatDateTime } from "@/lib/timing";
 import { ExportVisits } from "@/components/export-visits";
 import { TableLoadingIndicator, TableNavigationProvider } from "@/components/table-navigation";
+import { getVisitDashboardData } from "@/lib/dashboard";
+import { OperationsChart } from "@/components/operations-chart";
 
 export default async function DepartmentQueue({
   searchParams,
@@ -81,7 +83,7 @@ export default async function DepartmentQueue({
       : { visits: [], totalCount: 0, page: 1, totalPages: 1, limit: 10 };
 
   const { visits, totalCount, totalPages } = paginatedData;
-  const [meetings, forwardDestinations] = currentHost
+  const [meetings, forwardDestinations, dashboardData] = currentHost
     ? await Promise.all([
         prisma.visit.findMany({
           where: {
@@ -97,6 +99,7 @@ export default async function DepartmentQueue({
               orderBy: { createdAt: "asc" },
               include: { changedBy: { select: { name: true } } },
             },
+            forwardRequests: { where: { status: "PENDING" }, select: { id: true } },
           },
           orderBy: { meetingStartedAt: "desc" },
         }),
@@ -104,8 +107,10 @@ export default async function DepartmentQueue({
           include: { employees: { orderBy: { name: "asc" } } },
           orderBy: { name: "asc" },
         }),
+        getVisitDashboardData({ departmentId: departmentId!, hostId: currentHost.id }),
       ])
-    : [[], []];
+    : [[], [], { statusData: [], dailyData: [] }];
+  const meetingsCount = meetings.length;
 
   return (
     <main className="shell workspace-shell">
@@ -125,9 +130,17 @@ export default async function DepartmentQueue({
             </p>
           </div>
         </section>
+        <section className="operations-dashboard">
+          <OperationsChart title="My visitor status" data={dashboardData.statusData} />
+          <OperationsChart title="My visits in the last 7 days" data={dashboardData.dailyData} />
+        </section>
 
         <section className="panel">
-          <DepartmentTabs activeTab={activeTab} pendingCount={pendingCount} />
+          <DepartmentTabs
+            activeTab={activeTab}
+            pendingCount={pendingCount}
+            meetingsCount={meetingsCount}
+          />
 
           {activeTab === "pending" ? (
             <div className="department-content">
@@ -200,17 +213,24 @@ export default async function DepartmentQueue({
                             {visit.visitor.company ? `${visit.visitor.company} · ` : ""}
                             {visit.purpose} · Meeting since {formatDateTime(visit.meetingStartedAt)}
                           </p>
+                          {visit.forwardRequests.length > 0 && (
+                            <p className="small forward-status">
+                              Forward request sent to Reception.
+                            </p>
+                          )}
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <ForwardVisitor
-                            visitId={visit.id}
-                            destinations={forwardDestinations.map((department) => ({
-                              ...department,
-                              employees: department.employees.filter(
-                                (employee) => employee.id !== currentHost?.id,
-                              ),
-                            }))}
-                          />
+                          {visit.forwardRequests.length === 0 && (
+                            <ForwardVisitor
+                              visitId={visit.id}
+                              destinations={forwardDestinations.map((department) => ({
+                                ...department,
+                                employees: department.employees.filter(
+                                  (employee) => employee.id !== currentHost?.id,
+                                ),
+                              }))}
+                            />
+                          )}
                           <VisitDetailsModal visit={visit} />
                         </div>
                       </article>

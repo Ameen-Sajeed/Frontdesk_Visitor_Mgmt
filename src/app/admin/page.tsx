@@ -3,6 +3,7 @@ import { getAuthSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { UserNav } from "@/components/user-nav";
 import { AdminWorkspace } from "@/components/admin-workspace";
+import { OperationsChart } from "@/components/operations-chart";
 
 export default async function AdminPage() {
   const session = await getAuthSession();
@@ -18,6 +19,15 @@ export default async function AdminPage() {
     }),
     prisma.appConfig.findUnique({ where: { key: "wait_threshold_minutes" } }),
   ]);
+  const usersByDepartment = departments.map((department) => ({
+    label: department.name,
+    value: department._count.users,
+  }));
+  const userAccessSummary = [
+    { label: "Active", value: users.filter((user) => user.accountStatus === "ACTIVE").length },
+    { label: "Pending", value: users.filter((user) => user.accountStatus === "PENDING").length },
+    { label: "Blocked", value: users.filter((user) => user.accountStatus === "BLOCKED").length },
+  ];
   return (
     <main className="shell">
       <UserNav user={session} />
@@ -27,6 +37,10 @@ export default async function AdminPage() {
           <h1>Manage access and settings.</h1>
           <p className="sub">Approve users, keep departments organised, and set visitor alerts.</p>
         </div>
+      </section>
+      <section className="operations-dashboard">
+        <OperationsChart title="Users by department" data={usersByDepartment} />
+        <OperationsChart title="User access" data={userAccessSummary} />
       </section>
       <AdminWorkspace
         initialUsers={users.map(({ password, department, ...user }) => ({

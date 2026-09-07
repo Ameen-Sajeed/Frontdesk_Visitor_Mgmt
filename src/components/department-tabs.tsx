@@ -6,9 +6,10 @@ import { usePathname, useSearchParams } from "next/navigation";
 interface DepartmentTabsProps {
   activeTab: "pending" | "meetings" | "history";
   pendingCount: number;
+  meetingsCount: number;
 }
 
-export function DepartmentTabs({ activeTab, pendingCount }: DepartmentTabsProps) {
+export function DepartmentTabs({ activeTab, pendingCount, meetingsCount }: DepartmentTabsProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -76,6 +77,21 @@ export function DepartmentTabs({ activeTab, pendingCount }: DepartmentTabsProps)
         }}
       >
         Meetings
+        {meetingsCount > 0 && (
+          <span
+            style={{
+              backgroundColor: activeTab === "meetings" ? "var(--primary, #2563eb)" : "#94a3b8",
+              color: "#ffffff",
+              fontSize: "0.75rem",
+              padding: "2px 7px",
+              borderRadius: 10,
+              fontWeight: 500,
+              marginLeft: 6,
+            }}
+          >
+            {meetingsCount}
+          </span>
+        )}
       </Link>
       <Link
         href={createTabUrl("history")}

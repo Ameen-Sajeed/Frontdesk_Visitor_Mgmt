@@ -3,18 +3,10 @@
 import { useState } from "react";
 import { Loader } from "@/components/loader";
 
-type ForwardRequest = {
+export type ForwardRequest = {
   id: string;
   note?: string | null;
-  requestedAt: Date | string;
   suggestedHostIds: string[];
-  visit: {
-    id: string;
-    purpose: string;
-    visitor: { fullName: string; company?: string | null };
-    department: { name: string };
-    host: { name: string };
-  };
   toDepartment: {
     id: string;
     name: string;
@@ -22,21 +14,24 @@ type ForwardRequest = {
   };
 };
 
-export function ForwardRequests({ requests }: { requests: ForwardRequest[] }) {
-  const [active, setActive] = useState<ForwardRequest | null>(null);
+export function ForwardRequestAssign({ request }: { request: ForwardRequest }) {
+  const [open, setOpen] = useState(false);
   const [hostId, setHostId] = useState("");
   const [priority, setPriority] = useState("0");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  if (!requests.length && !active) return null;
-  const suggested = active?.suggestedHostIds ?? [];
+  const suggestedHostId = request.suggestedHostIds[0];
+
+  function close() {
+    setOpen(false);
+    setError("");
+  }
   async function assign(event: React.FormEvent) {
     event.preventDefault();
-    if (!active) return;
     setSaving(true);
     setError("");
     try {
-      const response = await fetch(`/api/visit-forwards/${active.id}/assign`, {
+      const response = await fetch(`/api/visit-forwards/${request.id}/assign`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ hostId, priority: Number(priority) }),
@@ -50,38 +45,13 @@ export function ForwardRequests({ requests }: { requests: ForwardRequest[] }) {
       setSaving(false);
     }
   }
+
   return (
-    <section className="panel forward-request-panel">
-      <div className="toolbar">
-        <h2>Forwarding requests ({requests.length})</h2>
-      </div>
-      <div className="forward-request-list">
-        {requests.map((request) => (
-          <div className="forward-request" key={request.id}>
-            <div>
-              <strong>{request.visit.visitor.fullName}</strong>
-              <p className="small">
-                {request.visit.department.name} requested a handoff to {request.toDepartment.name} ·{" "}
-                {request.visit.purpose}
-              </p>
-              {request.note && <p className="small">Note: {request.note}</p>}
-            </div>
-            <button
-              className="primary"
-              type="button"
-              onClick={() => {
-                setActive(request);
-                setHostId("");
-                setPriority("0");
-                setError("");
-              }}
-            >
-              Assign
-            </button>
-          </div>
-        ))}
-      </div>
-      {active && (
+    <>
+      <button className="primary" type="button" onClick={() => setOpen(true)}>
+        Assign
+      </button>
+      {open && (
         <div
           className="overlay"
           role="dialog"
@@ -92,21 +62,15 @@ export function ForwardRequests({ requests }: { requests: ForwardRequest[] }) {
             <div className="modal-head reason-dialog-head">
               <div>
                 <h2>Assign forwarded visitor</h2>
-                <p className="small">
-                  {active.visit.visitor.fullName} → {active.toDepartment.name}
-                </p>
+                <p className="small">Forwarded to {request.toDepartment.name}</p>
               </div>
-              <button
-                className="icon-button"
-                type="button"
-                onClick={() => setActive(null)}
-                aria-label="Close"
-              >
+              <button className="icon-button" type="button" onClick={close} aria-label="Close">
                 ×
               </button>
             </div>
             <form className="reason-dialog-body" onSubmit={assign}>
               {error && <p className="error">{error}</p>}
+              {request.note && <p className="small">Note: {request.note}</p>}
               <label className="reason-field">
                 <span>Host</span>
                 <select
@@ -116,9 +80,9 @@ export function ForwardRequests({ requests }: { requests: ForwardRequest[] }) {
                   required
                 >
                   <option value="">Select host</option>
-                  {active.toDepartment.employees.map((host) => (
+                  {request.toDepartment.employees.map((host) => (
                     <option key={host.id} value={host.id}>
-                      {suggested.includes(host.id) ? "Suggested · " : ""}
+                      {host.id === suggestedHostId ? "Suggested · " : ""}
                       {host.name}
                       {host.designation ? ` · ${host.designation}` : ""}
                     </option>
@@ -138,12 +102,7 @@ export function ForwardRequests({ requests }: { requests: ForwardRequest[] }) {
                 </select>
               </label>
               <div className="reason-actions">
-                <button
-                  className="secondary"
-                  type="button"
-                  onClick={() => setActive(null)}
-                  disabled={saving}
-                >
+                <button className="secondary" type="button" onClick={close} disabled={saving}>
                   Cancel
                 </button>
                 <button className="primary" disabled={saving}>
@@ -154,6 +113,6 @@ export function ForwardRequests({ requests }: { requests: ForwardRequest[] }) {
           </div>
         </div>
       )}
-    </section>
+    </>
   );
 }
