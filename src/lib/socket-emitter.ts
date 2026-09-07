@@ -42,6 +42,11 @@ export async function broadcastVisitStatusChanged(visitData: any) {
   if (g.io && ownerUserId) g.io.to(`user_${ownerUserId}`).emit("visit_status_changed", visitData);
 }
 
+export function broadcastVisitForwardRequested(forwardRequest: any) {
+  const g = global as any;
+  if (g.io) g.io.to("reception").emit("visit_forward_requested", forwardRequest);
+}
+
 export function broadcastUserAvailabilityChanged(user: {
   id: string;
   departmentId?: string | null;

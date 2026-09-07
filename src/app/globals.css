@@ -525,6 +525,62 @@ tbody tr:last-child td {
   color: var(--ink);
   outline-color: var(--brand);
 }
+.forward-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  font-size: 13px;
+}
+.forward-suggestions legend {
+  padding: 0 4px;
+  font-weight: 650;
+}
+.forward-suggestions em {
+  color: var(--muted);
+  font-style: normal;
+  font-weight: 400;
+}
+.forward-suggestions label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+}
+.forward-request-panel {
+  margin: 16px 0;
+  flex: 0 0 auto !important;
+  min-height: auto !important;
+}
+.forward-request-panel .toolbar {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+}
+.forward-request-panel .toolbar h2 {
+  margin: 0;
+}
+.forward-request-list {
+  display: flex;
+  flex-direction: column;
+}
+.forward-request {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+}
+.forward-request:last-child {
+  border-bottom: 0;
+}
+.forward-request p {
+  margin-bottom: 0;
+}
 .reason-field textarea {
   min-height: 76px;
   resize: vertical;

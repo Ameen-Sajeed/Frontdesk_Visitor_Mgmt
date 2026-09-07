@@ -126,6 +126,21 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
       router.refresh();
     });
 
+    socket.on("visit_forward_requested", (forwardRequest) => {
+      if (user.role !== "RECEPTIONIST") return;
+      const toastId = `toast_${Date.now()}_${forwardRequest.id}`;
+      setToasts((prev) => [
+        {
+          id: toastId,
+          type: "status_change",
+          visit: forwardRequest.visit,
+          message: `${forwardRequest.visit.visitor.fullName} was forwarded from ${forwardRequest.fromDepartmentName} to ${forwardRequest.toDepartmentName}. Assign a host and priority.`,
+        },
+        ...prev,
+      ]);
+      router.refresh();
+    });
+
     socket.on("visit_delayed_alert", (alert) => {
       if (user.role !== "RECEPTIONIST") return;
       const toastId = `toast_${Date.now()}_${alert.visit.id}`;

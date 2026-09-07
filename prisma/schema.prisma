@@ -37,6 +37,11 @@ enum UserAccountStatus {
   BLOCKED
 }
 
+enum VisitForwardStatus {
+  PENDING
+  COMPLETED
+}
+
 model User {
   id           String      @id @default(cuid())
   employeeId   String      @unique
@@ -140,9 +145,28 @@ model Visit {
   department        Department  @relation(fields: [departmentId], references: [id])
   host              Employee    @relation("VisitHost", fields: [hostId], references: [id])
   history           VisitStatusHistory[]
+  forwardRequests   VisitForwardRequest[]
 
   @@index([departmentId, status, priority, approvalAskedAt])
   @@index([status, registeredAt])
+}
+
+model VisitForwardRequest {
+  id               String             @id @default(cuid())
+  visitId          String
+  fromDepartmentId String
+  toDepartmentId   String
+  suggestedHostIds String[]           @default([])
+  note             String?
+  requestedByUserId String
+  requestedAt      DateTime           @default(now())
+  handledAt        DateTime?
+  handledByUserId  String?
+  status           VisitForwardStatus @default(PENDING)
+  visit            Visit              @relation(fields: [visitId], references: [id], onDelete: Cascade)
+
+  @@index([status, requestedAt])
+  @@index([visitId, status])
 }
 
 model VisitStatusHistory {

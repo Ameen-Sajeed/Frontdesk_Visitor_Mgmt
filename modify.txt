@@ -496,3 +496,24 @@ Make these corrections in the existing ArriVo codebase. Keep the changes minimal
 Trace the root cause rather than applying frontend-only fixes. Check the user model, authentication/session data, role mapping, profile API/data, and related UI components.
 
 Do not modify unrelated functionality or over-engineer the solution.
+
+
+When a Department user forwards a visitor, should they select only the destination department, 
+and then Reception selects the new host/person in that department plus priority?
+
+there is a bug . 
+
+When the user is entered . it is not coming meeting list of department . 
+also in vistors list for reception dashboard also it it is coming . somewhere some issue is there . 
+check and fix it . make it seamless and clean approach
+
+. 
+
+No still there is an issue . now when I add an visitor that user itslef is not showing up in visitor list of 
+reception dashboard . also when the department user approves the visitor it is not coming in meetings tab . 
+also due to that not showing the visitot list in dashboard. 
+
+can u check this scenario . 
+
+Receptionist -> visitor -> HR (Hashir) -> Trying to Fwd (layla same department) but in dropdown department is not showing
+while forwarding . can u check this this , and get fixed 

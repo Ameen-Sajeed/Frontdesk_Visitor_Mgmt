@@ -5,6 +5,7 @@ import { getPaginatedDepartmentVisits } from "@/lib/visits";
 import { UserNav } from "@/components/user-nav";
 import { StatusBadge } from "@/components/status-badge";
 import { VisitActions } from "@/components/visit-actions";
+import { ForwardVisitor } from "@/components/forward-visitor";
 import { QueryFilter } from "@/components/query-filter";
 import { DateFilter } from "@/components/date-filter";
 import { SearchFilter } from "@/components/search-filter";
@@ -46,7 +47,7 @@ export default async function DepartmentQueue({
         ])
       : [null, null];
 
-  const activeTab = tab === "history" ? "history" : "pending";
+  const activeTab = tab === "history" || tab === "meetings" ? tab : "pending";
   const pageNum = Number(page) || 1;
 
   // Pending count for tab badge
@@ -80,6 +81,31 @@ export default async function DepartmentQueue({
       : { visits: [], totalCount: 0, page: 1, totalPages: 1, limit: 10 };
 
   const { visits, totalCount, totalPages } = paginatedData;
+  const [meetings, forwardDestinations] = currentHost
+    ? await Promise.all([
+        prisma.visit.findMany({
+          where: {
+            departmentId: departmentId!,
+            hostId: currentHost.id,
+            status: VisitStatus.INSIDE,
+          },
+          include: {
+            visitor: true,
+            department: true,
+            host: true,
+            history: {
+              orderBy: { createdAt: "asc" },
+              include: { changedBy: { select: { name: true } } },
+            },
+          },
+          orderBy: { meetingStartedAt: "desc" },
+        }),
+        prisma.department.findMany({
+          include: { employees: { orderBy: { name: "asc" } } },
+          orderBy: { name: "asc" },
+        }),
+      ])
+    : [[], []];
 
   return (
     <main className="shell workspace-shell">
@@ -155,6 +181,45 @@ export default async function DepartmentQueue({
 
               <Pagination page={pageNum} totalPages={totalPages} />
               <TableLoadingIndicator />
+            </div>
+          ) : activeTab === "meetings" ? (
+            <div className="department-content">
+              <div className="toolbar">
+                <h2>Meetings ({meetings.length})</h2>
+              </div>
+              <div className="queue-scroll">
+                <div style={{ padding: 18 }} className="queue">
+                  {meetings.length ? (
+                    meetings.map((visit) => (
+                      <article className="queue-card" key={visit.id}>
+                        <div>
+                          <h3>
+                            {visit.visitor.fullName} <StatusBadge status={visit.status} />
+                          </h3>
+                          <p className="queue-meta">
+                            {visit.visitor.company ? `${visit.visitor.company} · ` : ""}
+                            {visit.purpose} · Meeting since {formatDateTime(visit.meetingStartedAt)}
+                          </p>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <ForwardVisitor
+                            visitId={visit.id}
+                            destinations={forwardDestinations.map((department) => ({
+                              ...department,
+                              employees: department.employees.filter(
+                                (employee) => employee.id !== currentHost?.id,
+                              ),
+                            }))}
+                          />
+                          <VisitDetailsModal visit={visit} />
+                        </div>
+                      </article>
+                    ))
+                  ) : (
+                    <div className="empty">No visitors are currently in a meeting.</div>
+                  )}
+                </div>
+              </div>
             </div>
           ) : (
             <div className="department-content">

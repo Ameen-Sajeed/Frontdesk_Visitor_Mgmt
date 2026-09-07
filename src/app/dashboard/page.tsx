@@ -15,6 +15,8 @@ import { formatDateTime } from "@/lib/timing";
 import { SearchFilter } from "@/components/search-filter";
 import { ExportVisits } from "@/components/export-visits";
 import { TableLoadingIndicator, TableNavigationProvider } from "@/components/table-navigation";
+import { ForwardRequests } from "@/components/forward-requests";
+import { prisma } from "@/lib/prisma";
 
 export default async function Dashboard({
   searchParams,
@@ -31,7 +33,7 @@ export default async function Dashboard({
   const { status, search, dateRange, startDate, endDate, page } = await searchParams;
   const pageNum = Number(page) || 1;
 
-  const [session, paginatedData, departments] = await Promise.all([
+  const [session, paginatedData, departments, forwardRequests] = await Promise.all([
     getAuthSession(),
     getPaginatedReceptionVisits({
       status,
@@ -43,9 +45,25 @@ export default async function Dashboard({
       limit: 10,
     }),
     getDepartmentsWithHosts(),
+    prisma.visitForwardRequest.findMany({
+      where: { status: "PENDING" },
+      include: {
+        visit: { include: { visitor: true, department: true, host: true } },
+      },
+      orderBy: { requestedAt: "asc" },
+    }),
   ]);
 
   const { visits, totalCount, totalPages } = paginatedData;
+  const forwardingRequests = await Promise.all(
+    forwardRequests.map(async (request) => ({
+      ...request,
+      toDepartment: await prisma.department.findUniqueOrThrow({
+        where: { id: request.toDepartmentId },
+        include: { employees: { orderBy: { name: "asc" } } },
+      }),
+    })),
+  );
 
   const waiting = visits.filter((v) => v.status === VisitStatus.WAITING).length;
   const activeStatuses: VisitStatus[] = [VisitStatus.INSIDE];
@@ -74,6 +92,8 @@ export default async function Dashboard({
             value={visits.filter((v) => v.status === VisitStatus.CHECKED_OUT).length}
           />
         </section>
+
+        <ForwardRequests requests={forwardingRequests} />
 
         <section className="panel">
           <div className="toolbar" style={{ flexWrap: "wrap", gap: 12 }}>
