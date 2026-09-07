@@ -250,7 +250,6 @@ export function AdminWorkspace({
               <tbody>
                 {users.map(
                   (user) => (
-                    console.log(user),
                     (
                       <tr key={user.id}>
                         <td>
