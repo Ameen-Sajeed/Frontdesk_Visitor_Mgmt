@@ -8,7 +8,11 @@ const dev = process.env.NODE_ENV !== "production";
 const app = next({ dev });
 const handle = app.getRequestHandler();
 
-app.prepare().then(() => {
+app.prepare().then(async () => {
+  const { jwtVerify } = await import("jose");
+  const secretKey = new TextEncoder().encode(
+    process.env.JWT_SECRET || "frontdesk-jwt-secret-key-2-day-task-2026",
+  );
   const server = createServer((req, res) => {
     const parsedUrl = parse(req.url, true);
     handle(req, res, parsedUrl);
@@ -26,29 +30,41 @@ app.prepare().then(() => {
   const emitPresence = (userId, departmentId, online) => {
     const payload = { userId, departmentId, online };
     io.to("reception").emit("user_presence_changed", payload);
-    if (departmentId) io.to(`department_${departmentId}`).emit("user_presence_changed", payload);
   };
 
+  io.use(async (socket, next) => {
+    const token = socket.handshake.headers.cookie
+      ?.split(";")
+      .map((cookie) => cookie.trim())
+      .find((cookie) => cookie.startsWith("auth_token="))
+      ?.slice("auth_token=".length);
+    if (!token) return next(new Error("Unauthorized"));
+
+    try {
+      const { payload } = await jwtVerify(token, secretKey);
+      if (!payload.userId || !payload.role) throw new Error("Invalid session");
+      socket.data.auth = {
+        userId: payload.userId,
+        role: payload.role,
+        departmentId: payload.departmentId || null,
+      };
+      next();
+    } catch {
+      next(new Error("Unauthorized"));
+    }
+  });
+
   io.on("connection", (socket) => {
-    socket.on("join", (data) => {
-      if (!data) return;
-      if (data.role === "RECEPTIONIST") {
-        socket.join("reception");
-      }
-      if (data.role === "DEPARTMENT_LEAD" && data.departmentId) {
-        socket.join(`department_${data.departmentId}`);
-      }
-      if (data.userId) {
-        socket.join(`user_${data.userId}`);
-        socket.data.userId = data.userId;
-        socket.data.departmentId = data.departmentId;
-        const connections = onlineUsers.get(data.userId) || new Set();
-        const wasOffline = connections.size === 0;
-        connections.add(socket.id);
-        onlineUsers.set(data.userId, connections);
-        if (wasOffline) emitPresence(data.userId, data.departmentId, true);
-      }
-    });
+    const { userId, role, departmentId } = socket.data.auth;
+    if (role === "RECEPTIONIST") socket.join("reception");
+    socket.join(`user_${userId}`);
+    socket.data.userId = userId;
+    socket.data.departmentId = departmentId;
+    const connections = onlineUsers.get(userId) || new Set();
+    const wasOffline = connections.size === 0;
+    connections.add(socket.id);
+    onlineUsers.set(userId, connections);
+    if (wasOffline) emitPresence(userId, departmentId, true);
 
     socket.on("disconnect", () => {
       const { userId, departmentId } = socket.data;
@@ -59,20 +75,6 @@ app.prepare().then(() => {
       if (connections.size === 0) {
         onlineUsers.delete(userId);
         emitPresence(userId, departmentId, false);
-      }
-    });
-
-    socket.on("register_visitor", (visitData) => {
-      if (visitData && visitData.departmentId) {
-        io.to(`department_${visitData.departmentId}`).emit("new_visitor_registered", visitData);
-      }
-      io.to("reception").emit("visit_created", visitData);
-    });
-
-    socket.on("update_visit_status", (visitData) => {
-      io.to("reception").emit("visit_status_changed", visitData);
-      if (visitData && visitData.departmentId) {
-        io.to(`department_${visitData.departmentId}`).emit("visit_status_changed", visitData);
       }
     });
   });

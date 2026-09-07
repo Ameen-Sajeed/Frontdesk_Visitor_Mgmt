@@ -112,6 +112,7 @@ export async function getPaginatedReceptionVisits({
 
 export async function getPaginatedDepartmentVisits({
   departmentId,
+  hostId,
   search,
   status,
   dateRange,
@@ -122,6 +123,7 @@ export async function getPaginatedDepartmentVisits({
   limit = 10,
 }: {
   departmentId: string;
+  hostId: string;
   search?: string;
   status?: string;
   dateRange?: string;
@@ -131,7 +133,7 @@ export async function getPaginatedDepartmentVisits({
   page?: number;
   limit?: number;
 }) {
-  const where: Prisma.VisitWhereInput = { departmentId };
+  const where: Prisma.VisitWhereInput = { departmentId, hostId };
 
   if (tab === "pending") {
     where.status = VisitStatus.WAITING;
@@ -156,7 +158,6 @@ export async function getPaginatedDepartmentVisits({
       ],
     };
   }
-
   const [totalCount, visits] = await Promise.all([
     prisma.visit.count({ where }),
     prisma.visit.findMany({
@@ -167,7 +168,6 @@ export async function getPaginatedDepartmentVisits({
       take: limit,
     }),
   ]);
-
   const totalPages = Math.max(1, Math.ceil(totalCount / limit));
 
   return {

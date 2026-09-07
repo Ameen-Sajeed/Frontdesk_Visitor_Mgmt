@@ -367,3 +367,132 @@ you can use cdn or better packages for it . also when user chooses custom status
 previous custom ones , same like slack does . make it clean , standard and efficient . also 
 whenver user logs out keep it away (if possible add a time login and log out ) based on that we can calculate right . 
 also when user comes in / logs into the application it should be in online . make these changes .
+
+
+
+After feedback : 
+1. We have to remove that create registration process , we shouldn't allow user to register themselves . 
+Here what we can do is admin itself can create users . then the users can login with that creds . 
+here while creating we have to an add unique EMP id eg:EMP001 . 
+users can login by either empid or email . 
+
+2.Department can forward to other departments . if by mistake the receptionist assign with this department . 
+and or sometimes initially a customer want to introduce a product , first he/she was supposed to meet HR department . 
+then department says meet the marketing team and later e-commerce team . so 
+the department should forward/refer to the departments . this communication should go through reception itslef . 
+the receptionist should assign to that forwarded request based on priority . alerts should happen properly . same as our 
+toast notifications as of now we are doing . make it clean and simple . 
+
+3. Add a dashboard for receptionist and all other departments for admin also . create some reusable 
+attractive charts . only the data should change . in that manner we can do this . 
+
+ask questions if u have any doubt . first do the 1st point then come for review . then we will go for the next ones .
+
+
+Implement the following changes in the existing ArriVo codebase. Follow the current architecture, coding style, UI/design, and reusable components. **Do not over-engineer or modify unrelated functionality.**
+
+### Step 1 — User Management
+
+Remove self-registration completely.
+
+* Only **Admin** can create users.
+* Admin-created users must have a unique Employee ID, e.g. `EMP001`.
+* Users can log in using **Employee ID OR email + password**.
+* Keep existing authentication/RBAC behavior intact.
+* Update related UI, API, validation, and database logic as required.
+* Remove/disable public registration routes and flows.
+* Ensure duplicate Employee IDs are prevented at the database level.
+
+**Important:** Implement **only Step 1 now**.
+After completing it, stop and give me a short summary of what changed and any important considerations. **Do not start Steps 2 or 3 until I review and approve Step 1.**
+
+### Step 2 — Department Forwarding
+
+After Step 1 approval, we will implement:
+
+* Department users can forward/refer a visitor request to another department.
+* Example: HR → Marketing → E-commerce.
+* Forwarding should go through Reception.
+* Reception receives a real-time toast notification and assigns the forwarded request based on priority.
+* Preserve the existing Socket.IO and notification patterns.
+* Keep the workflow simple and clean.
+
+### Step 3 — Dashboards & Charts
+
+After Step 2 approval:
+
+* Add dashboards for Reception, Departments, and Admin.
+* Create reusable, attractive chart components where only the data/configuration changes.
+* Reuse the same chart components across dashboards.
+* Keep the design consistent with ArriVo and avoid unnecessary complexity.
+
+If anything is unclear or requires a design/architecture decision, **ask me before implementing it rather than making assumptions.**
+
+
+
+Make these changes to the existing ArriVo Admin → Create User flow.
+
+1. **Create User UI**
+
+* The current Create User UI looks inconsistent/ugly.
+* Change it to a clean **popup/modal**, matching the existing **Register Visitor** modal design and interaction pattern.
+* Reuse existing modal, form, input, button, loader, validation, and toast components where possible.
+* Keep it responsive and consistent with the ArriVo design.
+
+2. **Employee ID**
+
+* Remove the Employee ID input field completely.
+* Employee ID must be **generated automatically by the backend** when an admin creates a user.
+* Follow a consistent format such as `EMP001`, `EMP002`, `EMP003`, etc.
+* Ensure the ID is unique and generated safely at the database/backend level.
+* After successful creation, show the generated Employee ID clearly to the admin so it can be shared with the user.
+* Do not generate or calculate the Employee ID on the frontend.
+
+Do not modify unrelated functionality or over-engineer the solution. Follow the existing architecture and coding style.
+
+
+There is a small issue happening , i.e I created a new user amal under accounts . 
+but he is new user , no data should be there , still when i checked there is one 
+data in visitor history . it is for a differenct user in acconts . 
+so to cross-verify I just checked creating new visitor for other user in acconts . 
+the notifcation and data is coming to the new user in accounts too . this is a bug . it shouldn't
+happen right . user specific only it should happen or will get confusion and this is not right way . fix it 
+
+
+
+Make these corrections in the existing ArriVo codebase. Keep the changes minimal and follow the existing architecture, UI style, and reusable components.
+
+1. **Admin → User Role**
+
+* In the Admin user-creation/user list UI, replace the current role labels:
+
+* Show the user's Designation instead of the Role header 
+
+2. **Error Message UI**
+
+* Fix the current error messages that are appearing black/unstyled.
+* Errors should use a proper **red error style** consistent with the ArriVo design.
+* Make them clean, readable, and visually clear.
+* Reuse the existing validation/error components if available instead of creating duplicates.
+
+3. **Profile Section**
+
+* In the profile icon/menu, display:
+
+  * User name
+  * Designation
+  * Department
+* Ensure the information comes from the authenticated user's actual profile data.
+
+4. **Admin Profile Bug**
+
+* There is currently a bug where an Admin user is being displayed as `Receptionist`.
+* Fix the role/profile mapping so Admin users correctly display as **Admin**.
+* Review the authentication/user-role mapping and related profile components for similar role-display issues.
+* Verify Receptionist and Department users are also displayed correctly.
+
+### Important
+
+Trace the root cause rather than applying frontend-only fixes. Check the user model, authentication/session data, role mapping, profile API/data, and related UI components.
+
+Do not modify unrelated functionality or over-engineer the solution.

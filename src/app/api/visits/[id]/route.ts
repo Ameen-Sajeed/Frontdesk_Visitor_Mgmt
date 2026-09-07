@@ -14,12 +14,21 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const current = await prisma.visit.findUnique({
       where: { id },
-      select: { departmentId: true, status: true, approvalStatus: true },
+      select: {
+        departmentId: true,
+        status: true,
+        approvalStatus: true,
+        host: { select: { email: true } },
+      },
     });
     if (!current) return NextResponse.json({ error: "Visit not found." }, { status: 404 });
     const departmentAction = action === "APPROVE" || action === "REJECT";
     if (departmentAction) {
-      if (session.role !== "DEPARTMENT_LEAD" || session.departmentId !== current.departmentId) {
+      if (
+        session.role !== "DEPARTMENT_LEAD" ||
+        session.departmentId !== current.departmentId ||
+        session.email !== current.host.email
+      ) {
         return NextResponse.json({ error: "You cannot decide this visit." }, { status: 403 });
       }
     } else if (session.role !== "RECEPTIONIST") {
@@ -61,7 +70,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     });
 
     if (visitWithDetails) {
-      broadcastVisitStatusChanged(visitWithDetails);
+      await broadcastVisitStatusChanged(visitWithDetails);
     }
 
     return NextResponse.json(visitWithDetails || updatedVisit);

@@ -35,34 +35,49 @@ export default async function DepartmentQueue({
   // Strict Data Security Enforcement: Backend determines departmentId from authenticated user session
   const departmentId = session?.departmentId;
 
-  const currentDepartment = departmentId
-    ? await prisma.department.findUnique({ where: { id: departmentId } })
-    : null;
+  const [currentDepartment, currentHost] =
+    departmentId && session?.email
+      ? await Promise.all([
+          prisma.department.findUnique({ where: { id: departmentId } }),
+          prisma.employee.findFirst({
+            where: { departmentId, email: session.email },
+            select: { id: true },
+          }),
+        ])
+      : [null, null];
 
   const activeTab = tab === "history" ? "history" : "pending";
   const pageNum = Number(page) || 1;
 
   // Pending count for tab badge
-  const pendingCount = departmentId
-    ? await prisma.visit.count({
-        where: { departmentId, status: VisitStatus.WAITING, approvalStatus: "PENDING" },
-      })
-    : 0;
+  const pendingCount =
+    departmentId && currentHost
+      ? await prisma.visit.count({
+          where: {
+            departmentId,
+            hostId: currentHost.id,
+            status: VisitStatus.WAITING,
+            approvalStatus: "PENDING",
+          },
+        })
+      : 0;
 
   // Fetch paginated visits based on active tab and filters
-  const paginatedData = departmentId
-    ? await getPaginatedDepartmentVisits({
-        departmentId,
-        search,
-        status,
-        dateRange,
-        startDate,
-        endDate,
-        tab: activeTab,
-        page: pageNum,
-        limit: 10,
-      })
-    : { visits: [], totalCount: 0, page: 1, totalPages: 1, limit: 10 };
+  const paginatedData =
+    departmentId && currentHost
+      ? await getPaginatedDepartmentVisits({
+          departmentId,
+          hostId: currentHost.id,
+          search,
+          status,
+          dateRange,
+          startDate,
+          endDate,
+          tab: activeTab,
+          page: pageNum,
+          limit: 10,
+        })
+      : { visits: [], totalCount: 0, page: 1, totalPages: 1, limit: 10 };
 
   const { visits, totalCount, totalPages } = paginatedData;
 

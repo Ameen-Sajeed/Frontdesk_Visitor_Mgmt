@@ -52,11 +52,15 @@ export function UserNav({ user }: { user?: User | null }) {
   }, []);
 
   const roleLabel =
-    user?.role === "DEPARTMENT_LEAD"
-      ? user.designation
-        ? `${user.designation} · ${user.departmentName ?? "Department"}`
-        : (user.departmentName ?? "Department")
-      : "Receptionist";
+    user?.role === "ADMIN"
+      ? "Admin"
+      : user?.role === "DEPARTMENT_LEAD"
+        ? user.designation
+          ? `${user.designation} · ${user.departmentName ?? "Department"}`
+          : (user.departmentName ?? "Department")
+        : user?.role === "RECEPTIONIST"
+          ? "Receptionist"
+          : "User";
   const clearCustomDraft = () => {
     setCustomText("");
     setCustomEmoji("💬");
