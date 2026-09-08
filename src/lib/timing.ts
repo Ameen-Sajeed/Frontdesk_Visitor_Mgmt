@@ -36,15 +36,18 @@ export function calculateWaitingTime(visit: {
   registeredAt: Date | string;
   checkedInAt?: Date | string | null;
   decidedAt?: Date | string | null;
+  leftAt?: Date | string | null;
 }): string {
   const start = new Date(visit.registeredAt).getTime();
   if (isNaN(start)) return "—";
 
-  // End of waiting is when checked in, or when decided (if rejected), or current time if still waiting
+  // Waiting ends when the visitor enters the meeting or their visit is otherwise resolved.
   const end = visit.checkedInAt
     ? new Date(visit.checkedInAt).getTime()
     : visit.decidedAt
     ? new Date(visit.decidedAt).getTime()
+    : visit.leftAt
+    ? new Date(visit.leftAt).getTime()
     : Date.now();
 
   return formatDurationMs(end - start);
@@ -54,7 +57,15 @@ export function calculateMeetingDuration(visit: {
   meetingStartedAt?: Date | string | null;
   checkedInAt?: Date | string | null;
   checkedOutAt?: Date | string | null;
+  leftAt?: Date | string | null;
+  meetings?: MeetingSegment[];
 }): string {
+  const breakdown = calculateMeetingBreakdown(visit);
+  if (breakdown.length) {
+    const totalMs = breakdown.reduce((total, meeting) => total + meeting.durationMs, 0);
+    const total = formatDurationMs(totalMs);
+    return breakdown.some((meeting) => meeting.ongoing) ? `${total} (ongoing)` : total;
+  }
   const start = visit.meetingStartedAt
     ? new Date(visit.meetingStartedAt).getTime()
     : visit.checkedInAt
@@ -63,10 +74,39 @@ export function calculateMeetingDuration(visit: {
 
   if (!start) return "Not started";
 
-  const end = visit.checkedOutAt
-    ? new Date(visit.checkedOutAt).getTime()
+  // A visit that ended without a formal checkout is still finished. This also
+  // correctly handles legacy records that were marked left after entering a meeting.
+  const endedAt = visit.checkedOutAt || visit.leftAt;
+  const end = endedAt
+    ? new Date(endedAt).getTime()
     : Date.now();
 
   const durationStr = formatDurationMs(end - start);
-  return visit.checkedOutAt ? durationStr : `${durationStr} (ongoing)`;
+  return endedAt ? durationStr : `${durationStr} (ongoing)`;
+}
+
+export type MeetingSegment = {
+  startedAt: Date | string;
+  endedAt?: Date | string | null;
+  host: { name: string };
+  department: { name: string };
+};
+
+export function calculateMeetingBreakdown(visit: { meetings?: MeetingSegment[] }) {
+  return (visit.meetings ?? []).flatMap((meeting) => {
+    const start = new Date(meeting.startedAt).getTime();
+    if (isNaN(start)) return [];
+    const endedAt = meeting.endedAt;
+    const ongoing = !endedAt;
+    const end = ongoing ? Date.now() : new Date(endedAt).getTime();
+    if (isNaN(end)) return [];
+    const durationMs = Math.max(0, end - start);
+    return [{
+      hostName: meeting.host.name,
+      departmentName: meeting.department.name,
+      durationMs,
+      duration: formatDurationMs(durationMs),
+      ongoing,
+    }];
+  });
 }

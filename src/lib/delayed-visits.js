@@ -12,7 +12,7 @@ async function notifyDelayedVisits(io) {
   const thresholdStart = new Date(now.getTime() - thresholdMinutes * 60 * 1000);
   const candidates = await prisma.visit.findMany({
     where: {
-      status: { in: [VisitStatus.REGISTERED, VisitStatus.WAITING_APPROVAL, VisitStatus.APPROVED, VisitStatus.CHECKED_IN] },
+      status: VisitStatus.WAITING,
       meetingStartedAt: null,
       checkedOutAt: null,
       delayedNotifiedAt: null,

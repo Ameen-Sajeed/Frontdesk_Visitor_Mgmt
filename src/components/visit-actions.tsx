@@ -1,29 +1,47 @@
 "use client";
+
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { VisitStatus } from "@prisma/client";
 import { VisitReasonModal } from "@/components/visit-reason-modal";
+import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
 import { Loader } from "@/components/loader";
+
+type VisitAction = "APPROVE" | "REJECT" | "INSIDE" | "CHECKED_OUT" | "LEFT_WITHOUT_MEETING";
 
 export function VisitActions({
   visitId,
   actions,
 }: {
   visitId: string;
-  actions: { status: VisitStatus; label: string; kind?: "danger" | "secondary" | "primary" }[];
+  actions: { action: VisitAction; label: string; kind?: "danger" | "secondary" | "primary" }[];
 }) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [pendingStatus, setPendingStatus] = useState<VisitStatus | null>(null);
-  async function update(status: VisitStatus, comment?: string) {
+  const [pendingAction, setPendingAction] = useState<"REJECT" | "LEFT_WITHOUT_MEETING" | null>(
+    null,
+  );
+  const [confirmation, setConfirmation] = useState<{
+    action: VisitAction;
+    comment?: string;
+  } | null>(null);
+  async function update(action: VisitAction, comment?: string) {
     setLoading(true);
     try {
+      const body =
+        action === "APPROVE" || action === "REJECT"
+          ? { action, ...(action === "REJECT" ? { rejectionReason: comment } : {}) }
+          : {
+              status: action,
+              ...(action === VisitStatus.LEFT_WITHOUT_MEETING ? { leftReason: comment } : {}),
+            };
       const res = await fetch(`/api/visits/${visitId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, ...(status === VisitStatus.REJECTED ? { rejectionReason: comment } : {}), ...(status === VisitStatus.LEFT_WITHOUT_MEETING ? { leftReason: comment } : {}) }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error();
-      // The API emits visit_status_changed, which refreshes connected dashboards.
-      // Avoid a second local refresh that can cause a visible remount/flash.
+      router.refresh();
     } finally {
       setLoading(false);
     }
@@ -32,21 +50,55 @@ export function VisitActions({
     <div className="actions">
       {actions.map((action) => (
         <button
-          key={action.status}
+          key={action.action}
           className={action.kind ?? "secondary"}
           disabled={loading}
-          onClick={() => (action.status === VisitStatus.REJECTED || action.status === VisitStatus.LEFT_WITHOUT_MEETING) ? setPendingStatus(action.status) : update(action.status)}
+          onClick={() =>
+            action.action === "REJECT" || action.action === VisitStatus.LEFT_WITHOUT_MEETING
+              ? setPendingAction(action.action)
+              : setConfirmation({ action: action.action })
+          }
         >
           {loading ? <Loader label="Saving" /> : action.label}
         </button>
       ))}
-      {pendingStatus && (
+      {pendingAction && (
         <VisitReasonModal
-          status={pendingStatus as "REJECTED" | "LEFT_WITHOUT_MEETING"}
+          action={pendingAction}
           visitId={visitId}
           loading={loading}
-          onCancel={() => setPendingStatus(null)}
-          onSubmit={(reason) => { update(pendingStatus, reason); setPendingStatus(null); }}
+          onCancel={() => setPendingAction(null)}
+          onSubmit={(reason) => {
+            setConfirmation({ action: pendingAction, comment: reason });
+            setPendingAction(null);
+          }}
+        />
+      )}
+      {confirmation && (
+        <ConfirmActionDialog
+          title={
+            confirmation.action === "APPROVE"
+              ? "Approve visitor?"
+              : confirmation.action === "REJECT"
+                ? "Decline visitor?"
+                : "Confirm visitor update?"
+          }
+          message={
+            confirmation.action === "APPROVE"
+              ? "The receptionist will be notified that this visitor is approved."
+              : "This visitor's status will be updated."
+          }
+          confirmLabel={confirmation.action === "REJECT" ? "Decline" : "Confirm"}
+          danger={
+            confirmation.action === "REJECT" ||
+            confirmation.action === VisitStatus.LEFT_WITHOUT_MEETING
+          }
+          loading={loading}
+          onCancel={() => setConfirmation(null)}
+          onConfirm={async () => {
+            await update(confirmation.action, confirmation.comment);
+            setConfirmation(null);
+          }}
         />
       )}
     </div>

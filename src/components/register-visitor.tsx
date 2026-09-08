@@ -4,11 +4,20 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { visitorRegistrationSchema } from "@/lib/validation";
 import { Loader } from "@/components/loader";
 import { useTableNavigation } from "@/components/table-navigation";
+import { ActiveVisitModal, type ActiveVisit } from "@/components/active-visit-modal";
 
 type Department = {
   id: string;
   name: string;
-  employees: { id: string; name: string; designation?: string | null }[];
+  employees: {
+    id: string;
+    name: string;
+    designation?: string | null;
+    userId: string | null;
+    availabilityStatus: string;
+    customStatus: string | null;
+    customStatusEmoji: string | null;
+  }[];
 };
 type FieldName = keyof typeof visitorRegistrationSchema.shape;
 type FormValues = Record<FieldName, string>;
@@ -30,6 +39,7 @@ const initialValues: FormValues = {
   departmentId: "",
   hostId: "",
   type: "WALK_IN",
+  priority: "0",
 };
 
 export function RegisterVisitor({ departments }: { departments: Department[] }) {
@@ -42,9 +52,75 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
   const [matches, setMatches] = useState<VisitorMatch[]>([]);
   const [lookupOpen, setLookupOpen] = useState(false);
   const [activeMatch, setActiveMatch] = useState(-1);
+  const [returningVisitor, setReturningVisitor] = useState(false);
+  const [detailsConfirmed, setDetailsConfirmed] = useState(false);
+  const [activeVisit, setActiveVisit] = useState<ActiveVisit | null>(null);
+  const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
+  const [availabilityUpdates, setAvailabilityUpdates] = useState<
+    Record<
+      string,
+      {
+        availabilityStatus: string;
+        customStatus: string | null;
+        customStatusEmoji: string | null;
+      }
+    >
+  >({});
   const phoneFieldRef = useRef<HTMLDivElement>(null);
   const selectedPhoneRef = useRef<string | null>(null);
   const selected = departments.find((item) => item.id === values.departmentId);
+  const selectedHost = selected?.employees.find((employee) => employee.id === values.hostId);
+
+  useEffect(() => {
+    if (!open || !selected) return;
+    let active = true;
+    fetch(`/api/presence?departmentId=${selected.id}`)
+      .then((response) => response.json())
+      .then((data) => {
+        if (active && Array.isArray(data.onlineUserIds)) setOnlineUserIds(data.onlineUserIds);
+      })
+      .catch(() => {
+        if (active) setOnlineUserIds([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [open, selected?.id]);
+
+  useEffect(() => {
+    const handlePresence = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{ userId: string; departmentId?: string; online: boolean }>
+      ).detail;
+      if (detail.departmentId !== selected?.id) return;
+      setOnlineUserIds((current) =>
+        detail.online
+          ? current.includes(detail.userId)
+            ? current
+            : [...current, detail.userId]
+          : current.filter((id) => id !== detail.userId),
+      );
+    };
+    const handleAvailability = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{
+          userId: string;
+          departmentId?: string;
+          availabilityStatus: string;
+          customStatus: string | null;
+          customStatusEmoji: string | null;
+        }>
+      ).detail;
+      if (detail.departmentId !== selected?.id) return;
+      setAvailabilityUpdates((current) => ({ ...current, [detail.userId]: detail }));
+    };
+    window.addEventListener("arrivo:host-presence", handlePresence);
+    window.addEventListener("arrivo:host-availability", handleAvailability);
+    return () => {
+      window.removeEventListener("arrivo:host-presence", handlePresence);
+      window.removeEventListener("arrivo:host-availability", handleAvailability);
+    };
+  }, [selected?.id]);
 
   useEffect(() => {
     const phone = values.phone.trim();
@@ -66,9 +142,28 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
           setMatches(nextMatches);
           setLookupOpen(nextMatches.length > 0);
           setActiveMatch(-1);
+          const exactMatch = nextMatches.find(
+            (visitor: VisitorMatch) =>
+              visitor.phone.replace(/\D/g, "") === phone.replace(/\D/g, ""),
+          );
+          if (exactMatch) {
+            selectedPhoneRef.current = phone;
+            setValues((current) => ({
+              ...current,
+              fullName: exactMatch.fullName,
+              email: exactMatch.email ?? "",
+              company: exactMatch.company ?? "",
+              designation: exactMatch.designation ?? "",
+            }));
+            setReturningVisitor(true);
+            setDetailsConfirmed(false);
+          }
         }
       } catch {
-        if (isCurrent) { setMatches([]); setLookupOpen(false); }
+        if (isCurrent) {
+          setMatches([]);
+          setLookupOpen(false);
+        }
       }
     }, 300);
     return () => {
@@ -84,6 +179,9 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
     setLookupOpen(false);
     setFieldErrors({});
     setError("");
+    setReturningVisitor(false);
+    setDetailsConfirmed(false);
+    setActiveVisit(null);
   }
   function clearFieldError(name: string) {
     setFieldErrors((current) => {
@@ -94,7 +192,10 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
   function updateField(name: FieldName, value: string) {
     if (name === "phone") selectedPhoneRef.current = null;
     setValues((current) => ({ ...current, [name]: value }));
-    if (name === "phone") { setLookupOpen(value.replace(/\D/g, "").length >= 3); setActiveMatch(-1); }
+    if (name === "phone") {
+      setLookupOpen(value.replace(/\D/g, "").length >= 3);
+      setActiveMatch(-1);
+    }
     clearFieldError(name);
   }
   function chooseReturningVisitor(visitor: VisitorMatch) {
@@ -110,6 +211,8 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
     setMatches([]);
     setLookupOpen(false);
     setActiveMatch(-1);
+    setReturningVisitor(true);
+    setDetailsConfirmed(false);
   }
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -126,6 +229,10 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
       );
       return;
     }
+    if (returningVisitor && !detailsConfirmed) {
+      setError("Confirm the returning visitor details before registering the visit.");
+      return;
+    }
     setSaving(true);
     setFieldErrors({});
     try {
@@ -135,6 +242,10 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
         body: JSON.stringify(values),
       });
       const result = await response.json();
+      if (response.status === 409 && result.activeVisit) {
+        setActiveVisit(result.activeVisit as ActiveVisit);
+        return;
+      }
       if (!response.ok) throw new Error(result.error);
       resetModal();
       refresh();
@@ -154,6 +265,8 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
           setLookupOpen(false);
           setFieldErrors({});
           setError("");
+          setReturningVisitor(false);
+          setDetailsConfirmed(false);
           setOpen(true);
         }}
       >
@@ -183,14 +296,40 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                 />
                 <div className="field" ref={phoneFieldRef}>
                   <label htmlFor="phone">Phone number</label>
-                  <input id="phone" name="phone" type="text" required value={values.phone} onChange={(event) => updateField("phone", event.target.value)} onFocus={() => matches.length && setLookupOpen(true)} onKeyDown={(event) => {
-                    if (!lookupOpen || !matches.length) return;
-                    if (event.key === "ArrowDown") { event.preventDefault(); setActiveMatch((current) => Math.min(current + 1, matches.length - 1)); }
-                    if (event.key === "ArrowUp") { event.preventDefault(); setActiveMatch((current) => Math.max(current - 1, 0)); }
-                    if (event.key === "Escape") { setLookupOpen(false); }
-                    if (event.key === "Enter" && activeMatch >= 0) { event.preventDefault(); chooseReturningVisitor(matches[activeMatch]); }
-                  }} aria-invalid={Boolean(fieldErrors.phone)} aria-describedby={fieldErrors.phone ? "phone-error" : undefined} />
-                  {fieldErrors.phone && <p className="error" id="phone-error">{fieldErrors.phone}</p>}
+                  <input
+                    id="phone"
+                    name="phone"
+                    type="text"
+                    required
+                    value={values.phone}
+                    onChange={(event) => updateField("phone", event.target.value)}
+                    onFocus={() => matches.length && setLookupOpen(true)}
+                    onKeyDown={(event) => {
+                      if (!lookupOpen || !matches.length) return;
+                      if (event.key === "ArrowDown") {
+                        event.preventDefault();
+                        setActiveMatch((current) => Math.min(current + 1, matches.length - 1));
+                      }
+                      if (event.key === "ArrowUp") {
+                        event.preventDefault();
+                        setActiveMatch((current) => Math.max(current - 1, 0));
+                      }
+                      if (event.key === "Escape") {
+                        setLookupOpen(false);
+                      }
+                      if (event.key === "Enter" && activeMatch >= 0) {
+                        event.preventDefault();
+                        chooseReturningVisitor(matches[activeMatch]);
+                      }
+                    }}
+                    aria-invalid={Boolean(fieldErrors.phone)}
+                    aria-describedby={fieldErrors.phone ? "phone-error" : undefined}
+                  />
+                  {fieldErrors.phone && (
+                    <p className="error" id="phone-error">
+                      {fieldErrors.phone}
+                    </p>
+                  )}
                   {lookupOpen && matches.length > 0 && (
                     <div className="lookup-results" role="listbox" aria-label="Returning visitors">
                       {matches.map((visitor) => (
@@ -199,7 +338,10 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                           type="button"
                           role="option"
                           aria-selected={activeMatch === matches.indexOf(visitor)}
-                          onMouseDown={(event) => { event.preventDefault(); chooseReturningVisitor(visitor); }}
+                          onMouseDown={(event) => {
+                            event.preventDefault();
+                            chooseReturningVisitor(visitor);
+                          }}
                         >
                           <strong>{visitor.fullName}</strong>
                           <span>
@@ -238,7 +380,7 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                   name="type"
                   value={values.type}
                   onChange={(val) => updateField("type", val)}
-                  >
+                >
                   <option value="WALK_IN">Walk-in</option>
                   <option value="APPOINTMENT">Appointment</option>
                 </SelectField>
@@ -283,6 +425,38 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                     </option>
                   ))}
                 </SelectField>
+                <SelectField
+                  label="Initial priority"
+                  name="priority"
+                  value={values.priority}
+                  error={fieldErrors.priority}
+                  onChange={(val) => updateField("priority", val)}
+                >
+                  <option value="0">Normal</option>
+                  <option value="1">Medium</option>
+                  <option value="2">High</option>
+                </SelectField>
+                {selectedHost && (
+                  <HostAvailability
+                    host={selectedHost}
+                    online={Boolean(
+                      selectedHost.userId && onlineUserIds.includes(selectedHost.userId),
+                    )}
+                    update={
+                      selectedHost.userId ? availabilityUpdates[selectedHost.userId] : undefined
+                    }
+                  />
+                )}
+                {returningVisitor && (
+                  <label className="returning-visitor-confirmation full">
+                    <input
+                      type="checkbox"
+                      checked={detailsConfirmed}
+                      onChange={(event) => setDetailsConfirmed(event.target.checked)}
+                    />
+                    <span>Returning visitor found. I have confirmed or updated these details.</span>
+                  </label>
+                )}
               </div>
               {error && (
                 <p className="error" style={{ marginTop: 15 }}>
@@ -301,7 +475,56 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
           </div>
         </div>
       )}
+      {activeVisit && (
+        <ActiveVisitModal
+          visit={activeVisit}
+          onClose={() => setActiveVisit(null)}
+          onResolved={() => {
+            setActiveVisit(null);
+            setError("The previous visit was closed. You can now register this visitor again.");
+            refresh();
+          }}
+        />
+      )}
     </>
+  );
+}
+
+function HostAvailability({
+  host,
+  online,
+  update,
+}: {
+  host: Department["employees"][number];
+  online: boolean;
+  update?: {
+    availabilityStatus: string;
+    customStatus: string | null;
+    customStatusEmoji: string | null;
+  };
+}) {
+  const status = update?.availabilityStatus ?? host.availabilityStatus;
+  const customStatus = update?.customStatus ?? host.customStatus;
+  const customEmoji = update?.customStatusEmoji ?? host.customStatusEmoji;
+  const isAway = status === "AWAY" || status === "CUSTOM";
+  const label = !online
+    ? "Not currently online"
+    : status === "CUSTOM"
+      ? `${customEmoji ? `${customEmoji} ` : ""}${customStatus || "Custom status"}`
+      : status === "AWAY"
+        ? "Away"
+        : "Available";
+
+  return (
+    <div
+      className={`host-availability ${!online ? "offline" : isAway ? "away" : "online"}`}
+      role="status"
+    >
+      <span className="presence-dot" aria-hidden="true" />
+      <span>
+        <strong>{host.name}</strong> · {label}
+      </span>
+    </div>
   );
 }
 

@@ -5,22 +5,44 @@ import { AUTH_COOKIE_NAME, signToken, verifyPassword } from "@/lib/auth";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { email, password } = body;
+    const { identifier, email, password } = body;
 
-    const trimmedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+    const loginIdentifier =
+      typeof identifier === "string"
+        ? identifier.trim()
+        : typeof email === "string"
+          ? email.trim()
+          : "";
     const trimmedPassword = typeof password === "string" ? password : "";
 
-    if (!trimmedEmail || !trimmedPassword) {
-      return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
+    if (!loginIdentifier || !trimmedPassword) {
+      return NextResponse.json(
+        { error: "Employee ID or email and password are required." },
+        { status: 400 },
+      );
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: trimmedEmail },
+      where: loginIdentifier.includes("@")
+        ? { email: loginIdentifier.toLowerCase() }
+        : { employeeId: loginIdentifier.toUpperCase() },
       include: { department: true },
     });
 
     if (!user) {
       return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
+    }
+    if (user.accountStatus === "PENDING") {
+      return NextResponse.json(
+        { error: "Your account is awaiting administrator approval. Please try again later." },
+        { status: 403 },
+      );
+    }
+    if (user.accountStatus === "BLOCKED") {
+      return NextResponse.json(
+        { error: "This account has been blocked. Please contact an administrator." },
+        { status: 403 },
+      );
     }
 
     const isValidPassword = await verifyPassword(trimmedPassword, user.password);
@@ -28,6 +50,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
     }
 
+    const session = await prisma.userSession.create({ data: { userId: user.id } });
     const token = await signToken({
       userId: user.id,
       name: user.name,
@@ -35,6 +58,10 @@ export async function POST(request: Request) {
       role: user.role,
       designation: user.designation,
       departmentId: user.departmentId,
+      availabilityStatus: user.availabilityStatus,
+      customStatus: user.customStatus,
+      customStatusEmoji: user.customStatusEmoji,
+      sessionId: session.id,
     });
 
     const response = NextResponse.json({

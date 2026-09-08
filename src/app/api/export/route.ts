@@ -72,14 +72,29 @@ export async function GET(request: Request) {
       if (!session.departmentId) {
         return NextResponse.json({ error: "No department assigned to user." }, { status: 403 });
       }
+      const host = await prisma.employee.findFirst({
+        where: { departmentId: session.departmentId, email: session.email },
+        select: { id: true },
+      });
+      if (!host) {
+        return NextResponse.json(
+          { error: "No host record is assigned to this user." },
+          { status: 403 },
+        );
+      }
       where.departmentId = session.departmentId;
+      where.hostId = host.id;
     }
 
     if (status && status !== "ALL") {
       where.status = status as VisitStatus;
     }
 
-    const dateFilter = buildDateWhereClause(dateRange || undefined, startDate || undefined, endDate || undefined);
+    const dateFilter = buildDateWhereClause(
+      dateRange || undefined,
+      startDate || undefined,
+      endDate || undefined,
+    );
     if (dateFilter) {
       where.registeredAt = dateFilter;
     }
@@ -127,7 +142,11 @@ export async function GET(request: Request) {
       doc.setFontSize(16);
       doc.text("arriVo Visitor Management Report", 14, 15);
       doc.setFontSize(10);
-      doc.text(`Generated on: ${new Date().toLocaleString()} | Total Records: ${visits.length}`, 14, 22);
+      doc.text(
+        `Generated on: ${new Date().toLocaleString()} | Total Records: ${visits.length}`,
+        14,
+        22,
+      );
 
       const tableHeaders = [
         ["Visitor", "Company", "Department", "Host", "Type", "Status", "Registered", "Out Reason"],

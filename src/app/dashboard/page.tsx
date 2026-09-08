@@ -1,41 +1,87 @@
 import { VisitStatus } from "@prisma/client";
-import { getDepartmentsWithHosts, getPaginatedReceptionVisits } from "@/lib/visits";
+import {
+  getDepartmentsWithHosts,
+  getPaginatedReceptionVisits,
+  getWaitingQueuePositions,
+} from "@/lib/visits";
 import { getAuthSession } from "@/lib/auth";
 import { UserNav } from "@/components/user-nav";
 import { RegisterVisitor } from "@/components/register-visitor";
 import { StatusBadge } from "@/components/status-badge";
 import { VisitActions } from "@/components/visit-actions";
+import { NotifyDepartmentButton } from "@/components/notify-department-button";
 import { QueryFilter } from "@/components/query-filter";
 import { DateFilter } from "@/components/date-filter";
 import { Pagination } from "@/components/pagination";
 import { VisitDetailsModal } from "@/components/visit-details-modal";
 import { RealtimeListener } from "@/components/realtime-listener";
 import { formatDateTime } from "@/lib/timing";
-import { prisma } from "@/lib/prisma";
 import { SearchFilter } from "@/components/search-filter";
 import { ExportVisits } from "@/components/export-visits";
-import { WaitThresholdSettings } from "@/components/wait-threshold-settings";
 import { TableLoadingIndicator, TableNavigationProvider } from "@/components/table-navigation";
+import { ForwardRequestAssign } from "@/components/forward-requests";
+import { prisma } from "@/lib/prisma";
+import { getVisitDashboardData } from "@/lib/dashboard";
+import { ReceptionInsights } from "@/components/reception-insights";
+import { PriorityBadge } from "@/components/priority-badge";
+import { VisitPrioritySelect } from "@/components/visit-priority-select";
 
 export default async function Dashboard({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; search?: string; dateRange?: string; startDate?: string; endDate?: string; page?: string }>;
+  searchParams: Promise<{
+    status?: string;
+    search?: string;
+    dateRange?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: string;
+  }>;
 }) {
   const { status, search, dateRange, startDate, endDate, page } = await searchParams;
   const pageNum = Number(page) || 1;
 
-  const [session, paginatedData, departments, waitThreshold] = await Promise.all([
+  const [session, paginatedData, departments, forwardRequests, dashboardData] = await Promise.all([
     getAuthSession(),
-    getPaginatedReceptionVisits({ status, search, dateRange, startDate, endDate, page: pageNum, limit: 10 }),
+    getPaginatedReceptionVisits({
+      status,
+      search,
+      dateRange,
+      startDate,
+      endDate,
+      page: pageNum,
+      limit: 10,
+    }),
     getDepartmentsWithHosts(),
-    prisma.appConfig.findUnique({ where: { key: "wait_threshold_minutes" } }),
+    prisma.visitForwardRequest.findMany({
+      where: { status: "PENDING" },
+      include: {
+        visit: { include: { visitor: true, department: true, host: true } },
+      },
+      orderBy: { requestedAt: "asc" },
+    }),
+    getVisitDashboardData(),
   ]);
 
   const { visits, totalCount, totalPages } = paginatedData;
+  const queuePositions = await getWaitingQueuePositions(
+    visits.filter((visit) => visit.status === VisitStatus.WAITING).map((visit) => visit.id),
+  );
+  const forwardingRequests = await Promise.all(
+    forwardRequests.map(async (request) => ({
+      ...request,
+      toDepartment: await prisma.department.findUniqueOrThrow({
+        where: { id: request.toDepartmentId },
+        include: { employees: { orderBy: { name: "asc" } } },
+      }),
+    })),
+  );
+  const forwardingByVisit = Object.fromEntries(
+    forwardingRequests.map((request) => [request.visitId, request]),
+  );
 
-  const waiting = visits.filter((v) => v.status === VisitStatus.WAITING_APPROVAL).length;
-  const activeStatuses: VisitStatus[] = [VisitStatus.CHECKED_IN, VisitStatus.IN_MEETING];
+  const waiting = visits.filter((v) => v.status === VisitStatus.WAITING).length;
+  const activeStatuses: VisitStatus[] = [VisitStatus.INSIDE];
   const active = visits.filter((v) => activeStatuses.includes(v.status)).length;
 
   return (
@@ -44,128 +90,171 @@ export default async function Dashboard({
         <UserNav user={session} />
         <RealtimeListener user={session} />
         <section className="hero">
-        <div>
-          <p className="eyebrow">Reception workspace</p>
-          <h1>Visitors, handled with confidence.</h1>
-          <p className="sub">Register arrivals and keep every hand-off visible.</p>
-        </div>
-        <RegisterVisitor departments={departments} />
+          <div>
+            <p className="eyebrow">Reception workspace</p>
+            <h1>Visitors, handled with confidence.</h1>
+            <p className="sub">Register arrivals and keep every hand-off visible.</p>
+          </div>
+          <RegisterVisitor departments={departments} />
         </section>
 
         <section className="cards">
-        <Stat label="Total visits" value={totalCount} />
-        <Stat label="Awaiting approval" value={waiting} />
-        <Stat label="On site" value={active} />
-        <Stat
-          label="Checked out"
-          value={visits.filter((v) => v.status === VisitStatus.CHECKED_OUT).length}
-        />
+          <Stat label="Total visits" value={totalCount} />
+          <Stat label="Awaiting approval" value={waiting} />
+          <Stat label="On site" value={active} />
+          <Stat
+            label="Checked out"
+            value={visits.filter((v) => v.status === VisitStatus.CHECKED_OUT).length}
+          />
         </section>
+        <ReceptionInsights
+          statusData={dashboardData.statusData}
+          dailyData={dashboardData.dailyData}
+        />
 
         <section className="panel">
-        <div className="toolbar" style={{ flexWrap: "wrap", gap: 12 }}>
-          <h2>Visitor list ({totalCount})</h2>
+          <div className="toolbar" style={{ flexWrap: "wrap", gap: 12 }}>
+            <h2>Visitor list ({totalCount})</h2>
 
-          <div className="toolbar-controls">
-            <SearchFilter defaultValue={search ?? ""} />
-            <DateFilter value={dateRange ?? "ALL"} />
+            <div className="toolbar-controls">
+              <SearchFilter defaultValue={search ?? ""} />
+              <DateFilter value={dateRange ?? "ALL"} />
 
-            <QueryFilter
-              name="status"
-              value={status ?? "ALL"}
-              options={[
-                { value: "ALL", label: "All statuses" },
-                ...Object.values(VisitStatus).map((item) => ({
-                  value: item,
-                  label: item.replaceAll("_", " "),
-                })),
-              ]}
-            />
-            <ExportVisits />
-            <WaitThresholdSettings initialMinutes={waitThreshold?.value || "30"} />
-          </div>
-        </div>
-
-        {visits.length ? (
-          <div className="table-section">
-            <div className="table-scroll" tabIndex={0} aria-label="Visitor list">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Visitor</th>
-                    <th>Department</th>
-                    <th>Host</th>
-                    <th>Visit</th>
-                    <th>Status</th>
-                    <th>Registered</th>
-                    <th>Next step</th>
-                    <th>Details</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visits.map((visit) => (
-                    <tr key={visit.id}>
-                    <td>
-                      <div className="visitor">{visit.visitor.fullName}</div>
-                      <div className="small">
-                        {visit.visitor.designation ? `${visit.visitor.designation} · ` : ""}
-                        {visit.visitor.company || visit.visitor.phone}
-                      </div>
-                    </td>
-                    <td>{visit.department.name}</td>
-                    <td>
-                      <div>{visit.host.name}</div>
-                      {visit.host.designation && (
-                        <div className="small">{visit.host.designation}</div>
-                      )}
-                    </td>
-                    <td>
-                      {visit.type === "WALK_IN" ? "Walk-in" : "Appointment"}
-                      <div className="small">{visit.purpose}</div>
-                    </td>
-                    <td>
-                      <StatusBadge status={visit.status} />
-                    </td>
-                    <td>{formatDateTime(visit.registeredAt)}</td>
-                    <td>
-                      {visit.status === VisitStatus.APPROVED ? (
-                        <VisitActions
-                          visitId={visit.id}
-                          actions={[
-                            { status: VisitStatus.CHECKED_IN, label: "Check in", kind: "primary" },
-                          ]}
-                        />
-                      ) : visit.status === VisitStatus.CHECKED_IN ? (
-                        <VisitActions
-                          visitId={visit.id}
-                          actions={[{ status: VisitStatus.IN_MEETING, label: "Start meeting" }]}
-                        />
-                      ) : visit.status === VisitStatus.IN_MEETING ? (
-                        <VisitActions
-                          visitId={visit.id}
-                          actions={[{ status: VisitStatus.CHECKED_OUT, label: "Check out" }]}
-                        />
-                      ) : ([VisitStatus.WAITING_APPROVAL, VisitStatus.APPROVED, VisitStatus.CHECKED_IN] as VisitStatus[]).includes(visit.status) ? (
-                        <VisitActions visitId={visit.id} actions={[{ status: VisitStatus.LEFT_WITHOUT_MEETING, label: "Mark left", kind: "danger" }]} />
-                      ) : (
-                        <span className="small">—</span>
-                      )}
-                    </td>
-                    <td>
-                      <VisitDetailsModal visit={visit} />
-                    </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <QueryFilter
+                name="status"
+                value={status ?? "ALL"}
+                options={[
+                  { value: "ALL", label: "All statuses" },
+                  ...Object.values(VisitStatus).map((item) => ({
+                    value: item,
+                    label: item.replaceAll("_", " "),
+                  })),
+                ]}
+              />
+              <ExportVisits />
             </div>
-
-            <Pagination page={pageNum} totalPages={totalPages} />
-            <TableLoadingIndicator />
           </div>
-        ) : (
-          <div className="empty">No visitors match this filter.</div>
-        )}
+
+          {visits.length ? (
+            <div className="table-section">
+              <div className="table-scroll" tabIndex={0} aria-label="Visitor list">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Visitor</th>
+                      <th>Department</th>
+                      <th>Host</th>
+                      <th>Visit</th>
+                      <th>Queue & priority</th>
+                      <th>Status</th>
+                      <th>Registered</th>
+                      <th>Next step</th>
+                      <th>Details</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visits.map((visit) => (
+                      <tr key={visit.id}>
+                        <td>
+                          <div className="visitor visitor-with-reminder">
+                            <span>{visit.visitor.fullName}</span>
+                            {visit.status === VisitStatus.WAITING &&
+                              visit.approvalStatus === "PENDING" && (
+                                <NotifyDepartmentButton visitId={visit.id} />
+                              )}
+                          </div>
+                          <div className="small">
+                            {visit.visitor.designation ? `${visit.visitor.designation} · ` : ""}
+                            {visit.visitor.company || visit.visitor.phone}
+                          </div>
+                        </td>
+                        <td>{visit.department.name}</td>
+                        <td>
+                          <div>{visit.host.name}</div>
+                          {visit.host.designation && (
+                            <div className="small">{visit.host.designation}</div>
+                          )}
+                        </td>
+                        <td>
+                          {visit.type === "WALK_IN" ? "Walk-in" : "Appointment"}
+                          <div className="small">{visit.purpose}</div>
+                        </td>
+                        <td>
+                          <div className="priority-summary">
+                            {visit.status === VisitStatus.WAITING && queuePositions.has(visit.id) && (
+                              <span className="queue-badge" aria-label={`Queue position ${queuePositions.get(visit.id)}`}>
+                                #{queuePositions.get(visit.id)}
+                              </span>
+                            )}
+                            <PriorityBadge priority={visit.priority} />
+                          </div>
+                        </td>
+                        <td>
+                          <StatusBadge status={visit.status} />
+                          {forwardingByVisit[visit.id] && (
+                            <div className="small forward-status">Forwarded to Reception</div>
+                          )}
+                        </td>
+                        <td>{formatDateTime(visit.registeredAt)}</td>
+                        <td>
+                          {forwardingByVisit[visit.id] ? (
+                            <ForwardRequestAssign request={forwardingByVisit[visit.id]} />
+                          ) : visit.status === VisitStatus.WAITING &&
+                            visit.approvalStatus === "APPROVED" ? (
+                            <VisitActions
+                              visitId={visit.id}
+                              actions={[
+                                {
+                                  action: VisitStatus.INSIDE,
+                                  label: "Move inside",
+                                  kind: "primary",
+                                },
+                              ]}
+                            />
+                          ) : visit.status === VisitStatus.INSIDE ? (
+                            <VisitActions
+                              visitId={visit.id}
+                              actions={[{ action: VisitStatus.CHECKED_OUT, label: "Check out" }]}
+                            />
+                          ) : visit.status === VisitStatus.WAITING ? (
+                            <VisitActions
+                              visitId={visit.id}
+                              actions={[
+                                {
+                                  action: VisitStatus.LEFT_WITHOUT_MEETING,
+                                  label: "Mark left",
+                                  kind: "danger",
+                                },
+                              ]}
+                            />
+                          ) : (
+                            <span className="small">—</span>
+                          )}
+                        </td>
+                        <td>
+                          <div className="details-actions">
+                            <VisitDetailsModal visit={visit} />
+                            {visit.status === VisitStatus.WAITING && (
+                              <VisitPrioritySelect
+                                visitId={visit.id}
+                                priority={visit.priority}
+                                variant="icon"
+                              />
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <Pagination page={pageNum} totalPages={totalPages} />
+              <TableLoadingIndicator />
+            </div>
+          ) : (
+            <div className="empty">No visitors match this filter.</div>
+          )}
         </section>
       </TableNavigationProvider>
     </main>

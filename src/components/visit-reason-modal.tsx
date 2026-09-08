@@ -1,19 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { VisitStatus } from "@prisma/client";
 import { Loader } from "@/components/loader";
 
-type ReasonStatus = "REJECTED" | "LEFT_WITHOUT_MEETING";
+type ReasonAction = "REJECT" | "LEFT_WITHOUT_MEETING";
 
 export function VisitReasonModal({
-  status,
+  action,
   visitId,
   loading = false,
   onCancel,
   onSubmit,
 }: {
-  status: ReasonStatus;
+  action: ReasonAction;
   visitId: string;
   loading?: boolean;
   onCancel: () => void;
@@ -21,12 +20,12 @@ export function VisitReasonModal({
 }) {
   const [selectedReason, setSelectedReason] = useState("");
   const [comment, setComment] = useState("");
-  const isRejection = status === VisitStatus.REJECTED;
+  const isRejection = action === "REJECT";
 
   useEffect(() => {
     setSelectedReason("");
     setComment("");
-  }, [status, visitId]);
+  }, [action, visitId]);
 
   const reason = comment.trim() || selectedReason;
 
@@ -64,7 +63,9 @@ export function VisitReasonModal({
               id={`visit-reason-${visitId}`}
               value={comment}
               onChange={(event) => setComment(event.target.value)}
-              placeholder={isRejection ? "Add a short reason for reception" : "Add detail if needed"}
+              placeholder={
+                isRejection ? "Add a short reason for reception" : "Add detail if needed"
+              }
               maxLength={500}
               rows={3}
             />

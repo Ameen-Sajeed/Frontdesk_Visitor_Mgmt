@@ -2,7 +2,12 @@
 
 import { useState } from "react";
 import { StatusBadge } from "@/components/status-badge";
-import { calculateMeetingDuration, calculateWaitingTime, formatDateTime } from "@/lib/timing";
+import {
+  calculateMeetingBreakdown,
+  calculateMeetingDuration,
+  calculateWaitingTime,
+  formatDateTime,
+} from "@/lib/timing";
 
 interface VisitDetailsModalProps {
   visit: {
@@ -10,6 +15,7 @@ interface VisitDetailsModalProps {
     purpose: string;
     type: string;
     status: string;
+    approvalStatus?: string;
     registeredAt: Date | string;
     approvalAskedAt?: Date | string | null;
     decidedAt?: Date | string | null;
@@ -17,6 +23,13 @@ interface VisitDetailsModalProps {
     meetingStartedAt?: Date | string | null;
     checkedOutAt?: Date | string | null;
     leftAt?: Date | string | null;
+    meetings?: {
+      id: string;
+      startedAt: Date | string;
+      endedAt?: Date | string | null;
+      host: { name: string };
+      department: { name: string };
+    }[];
     rejectionReason?: string | null;
     leftReason?: string | null;
     visitor: {
@@ -28,7 +41,13 @@ interface VisitDetailsModalProps {
     };
     department: { name: string };
     host: { name: string; designation?: string | null };
-    history?: { id: string; status: string; createdAt: Date | string; note?: string | null }[];
+    history?: {
+      id: string;
+      status: string;
+      createdAt: Date | string;
+      note?: string | null;
+      changedBy?: { name: string } | null;
+    }[];
   };
 }
 
@@ -37,6 +56,7 @@ export function VisitDetailsModal({ visit }: VisitDetailsModalProps) {
 
   const waitingTime = calculateWaitingTime(visit);
   const meetingDuration = calculateMeetingDuration(visit);
+  const meetingBreakdown = calculateMeetingBreakdown(visit);
 
   return (
     <>
@@ -68,24 +88,61 @@ export function VisitDetailsModal({ visit }: VisitDetailsModalProps) {
               </button>
             </div>
 
-            <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 18 }}>
+            <div
+              style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 18 }}
+            >
               {/* Overview Metrics Cards */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div style={{ padding: 12, borderRadius: 8, backgroundColor: "var(--panel-bg, #f8fafc)", border: "1px solid var(--border, #e2e8f0)" }}>
-                  <div style={{ fontSize: "0.75rem", color: "var(--muted, #64748b)" }}>Waiting Time</div>
+                <div
+                  style={{
+                    padding: 12,
+                    borderRadius: 8,
+                    backgroundColor: "var(--panel-bg, #f8fafc)",
+                    border: "1px solid var(--border, #e2e8f0)",
+                  }}
+                >
+                  <div style={{ fontSize: "0.75rem", color: "var(--muted, #64748b)" }}>
+                    Waiting Time
+                  </div>
                   <strong style={{ fontSize: "1.125rem" }}>{waitingTime}</strong>
                 </div>
-                <div style={{ padding: 12, borderRadius: 8, backgroundColor: "var(--panel-bg, #f8fafc)", border: "1px solid var(--border, #e2e8f0)" }}>
-                  <div style={{ fontSize: "0.75rem", color: "var(--muted, #64748b)" }}>Meeting Duration</div>
+                <div
+                  style={{
+                    padding: 12,
+                    borderRadius: 8,
+                    backgroundColor: "var(--panel-bg, #f8fafc)",
+                    border: "1px solid var(--border, #e2e8f0)",
+                  }}
+                >
+                  <div style={{ fontSize: "0.75rem", color: "var(--muted, #64748b)" }}>
+                    Total Meeting Duration
+                  </div>
                   <strong style={{ fontSize: "1.125rem" }}>{meetingDuration}</strong>
+                  {meetingBreakdown.length > 0 && (
+                    <div className="meeting-breakdown" aria-label="Meeting duration by host">
+                      {meetingBreakdown.map((meeting, index) => (
+                        <span key={`${meeting.hostName}-${index}`}>
+                          {meeting.hostName} · {meeting.duration}{meeting.ongoing ? " (ongoing)" : ""}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Visit Metadata */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: "0.875rem" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 12,
+                  fontSize: "0.875rem",
+                }}
+              >
                 <div>
                   <span style={{ color: "var(--muted, #64748b)" }}>Host: </span>
-                  <strong>{visit.host.name}</strong> {visit.host.designation ? `(${visit.host.designation})` : ""}
+                  <strong>{visit.host.name}</strong>{" "}
+                  {visit.host.designation ? `(${visit.host.designation})` : ""}
                 </div>
                 <div>
                   <span style={{ color: "var(--muted, #64748b)" }}>Department: </span>
@@ -100,23 +157,86 @@ export function VisitDetailsModal({ visit }: VisitDetailsModalProps) {
                   <strong>{visit.purpose}</strong>
                 </div>
               </div>
-              {(visit.rejectionReason || visit.leftReason) && <div style={{ fontSize: "0.875rem" }}><span style={{ color: "var(--muted, #64748b)" }}>{visit.rejectionReason ? "Rejection comment: " : "Left without meeting reason: "}</span><strong>{visit.rejectionReason || visit.leftReason}</strong></div>}
+              {(visit.rejectionReason || visit.leftReason) && (
+                <div style={{ fontSize: "0.875rem" }}>
+                  <span style={{ color: "var(--muted, #64748b)" }}>
+                    {visit.rejectionReason
+                      ? "Rejection comment: "
+                      : "Left without meeting reason: "}
+                  </span>
+                  <strong>{visit.rejectionReason || visit.leftReason}</strong>
+                </div>
+              )}
 
               {/* Visit Timeline */}
               <div>
-                <h4 style={{ fontSize: "0.875rem", marginBottom: 10, color: "var(--muted, #64748b)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                <h4
+                  style={{
+                    fontSize: "0.875rem",
+                    marginBottom: 10,
+                    color: "var(--muted, #64748b)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                  }}
+                >
                   Visit Timeline
                 </h4>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, borderLeft: "2px solid var(--border, #cbd5e1)", paddingLeft: 12 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                    borderLeft: "2px solid var(--border, #cbd5e1)",
+                    paddingLeft: 12,
+                  }}
+                >
                   <TimelineItem label="Registered at" time={visit.registeredAt} />
-                  {visit.approvalAskedAt && <TimelineItem label="Approval requested" time={visit.approvalAskedAt} />}
-                  {visit.decidedAt && <TimelineItem label={visit.status === "REJECTED" ? "Rejected at" : "Approved at"} time={visit.decidedAt} />}
-                  {visit.checkedInAt && <TimelineItem label="Checked in at" time={visit.checkedInAt} />}
-                  {visit.meetingStartedAt && <TimelineItem label="Meeting started at" time={visit.meetingStartedAt} />}
-                  {visit.checkedOutAt && <TimelineItem label="Checked out at" time={visit.checkedOutAt} />}
-                  {visit.leftAt && <TimelineItem label="Left without meeting at" time={visit.leftAt} />}
+                  {visit.approvalAskedAt && (
+                    <TimelineItem label="Approval requested" time={visit.approvalAskedAt} />
+                  )}
+                  {visit.decidedAt && (
+                    <TimelineItem
+                      label={visit.approvalStatus === "REJECTED" ? "Declined at" : "Approved at"}
+                      time={visit.decidedAt}
+                    />
+                  )}
+                  {visit.meetingStartedAt && (
+                    <TimelineItem label="Moved inside at" time={visit.meetingStartedAt} />
+                  )}
+                  {visit.checkedOutAt && (
+                    <TimelineItem label="Checked out at" time={visit.checkedOutAt} />
+                  )}
+                  {visit.leftAt && (
+                    <TimelineItem label="Left without meeting at" time={visit.leftAt} />
+                  )}
                 </div>
               </div>
+              {visit.history?.length ? (
+                <div>
+                  <h4
+                    style={{
+                      fontSize: "0.875rem",
+                      marginBottom: 10,
+                      color: "var(--muted, #64748b)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                    }}
+                  >
+                    Activity
+                  </h4>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {visit.history.map((entry) => (
+                      <div key={entry.id} className="small">
+                        <strong style={{ color: "var(--ink)" }}>
+                          {entry.note || entry.status.replaceAll("_", " ")}
+                        </strong>{" "}
+                        · {formatDateTime(entry.createdAt)}
+                        {entry.changedBy ? ` · ${entry.changedBy.name}` : ""}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             <div className="form-actions" style={{ padding: "12px 20px" }}>
@@ -134,7 +254,14 @@ export function VisitDetailsModal({ visit }: VisitDetailsModalProps) {
 function TimelineItem({ label, time }: { label: string; time?: Date | string | null }) {
   if (!time) return null;
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.8125rem" }}>
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        fontSize: "0.8125rem",
+      }}
+    >
       <span>{label}</span>
       <strong style={{ color: "var(--foreground, #1e293b)" }}>{formatDateTime(time)}</strong>
     </div>
