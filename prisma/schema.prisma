@@ -94,6 +94,7 @@ model Department {
   employees Employee[]
   users     User[]
   visits    Visit[]
+  meetings  VisitMeeting[]
 }
 
 model Employee {
@@ -104,6 +105,7 @@ model Employee {
   departmentId String
   department   Department @relation(fields: [departmentId], references: [id])
   visits       Visit[]    @relation("VisitHost")
+  meetings     VisitMeeting[] @relation("MeetingHost")
   createdAt    DateTime   @default(now())
 }
 
@@ -146,9 +148,26 @@ model Visit {
   host              Employee    @relation("VisitHost", fields: [hostId], references: [id])
   history           VisitStatusHistory[]
   forwardRequests   VisitForwardRequest[]
+  meetings          VisitMeeting[]
 
   @@index([departmentId, status, priority, approvalAskedAt])
   @@index([status, registeredAt])
+}
+
+model VisitMeeting {
+  id          String     @id @default(cuid())
+  visitId     String
+  departmentId String
+  hostId      String
+  startedAt   DateTime   @default(now())
+  endedAt     DateTime?
+  endedReason String?
+  visit       Visit      @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  department  Department @relation(fields: [departmentId], references: [id])
+  host        Employee   @relation("MeetingHost", fields: [hostId], references: [id])
+
+  @@index([visitId, startedAt])
+  @@index([hostId, endedAt])
 }
 
 model VisitForwardRequest {

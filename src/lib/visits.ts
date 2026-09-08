@@ -8,6 +8,10 @@ export const visitInclude = {
   department: true,
   host: true,
   history: { orderBy: { createdAt: "asc" }, include: { changedBy: { select: { name: true } } } },
+  meetings: {
+    orderBy: { startedAt: "asc" },
+    include: { host: true, department: true },
+  },
 } satisfies Prisma.VisitInclude;
 
 export type VisitWithDetails = Prisma.VisitGetPayload<{ include: typeof visitInclude }>;
@@ -343,6 +347,40 @@ export async function changeVisitStatus(
           : {};
 
   return prisma.$transaction(async (tx) => {
+    if (status === VisitStatus.INSIDE) {
+      await tx.visitMeeting.create({
+        data: {
+          visitId: id,
+          departmentId: current.departmentId,
+          hostId: current.hostId,
+          startedAt: now,
+        },
+      });
+    }
+    if (status === VisitStatus.CHECKED_OUT || status === VisitStatus.LEFT_WITHOUT_MEETING) {
+      const activeMeeting = await tx.visitMeeting.findFirst({
+        where: { visitId: id, endedAt: null },
+        orderBy: { startedAt: "desc" },
+      });
+      if (activeMeeting) {
+        await tx.visitMeeting.update({
+          where: { id: activeMeeting.id },
+          data: { endedAt: now, endedReason: status },
+        });
+      } else if (current.meetingStartedAt) {
+        // Supports records created before individual meeting tracking was introduced.
+        await tx.visitMeeting.create({
+          data: {
+            visitId: id,
+            departmentId: current.departmentId,
+            hostId: current.hostId,
+            startedAt: current.meetingStartedAt,
+            endedAt: now,
+            endedReason: status,
+          },
+        });
+      }
+    }
     const visit = await tx.visit.update({ where: { id }, data: { status, ...timestamps } });
 
     const note =

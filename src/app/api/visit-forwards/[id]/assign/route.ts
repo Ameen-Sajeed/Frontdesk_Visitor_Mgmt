@@ -33,7 +33,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
   const visit = await prisma.visit.findUnique({
     where: { id: forwardRequest.visitId },
-    select: { status: true, hostId: true },
+    select: { status: true, hostId: true, departmentId: true, meetingStartedAt: true },
   });
   if (!visit || visit.status !== VisitStatus.INSIDE) {
     return NextResponse.json(
@@ -60,7 +60,29 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   });
   const now = new Date();
   const updated = await prisma.$transaction(async (tx) => {
-    const visit = await tx.visit.update({
+    const activeMeeting = await tx.visitMeeting.findFirst({
+      where: { visitId: forwardRequest.visitId, endedAt: null },
+      orderBy: { startedAt: "desc" },
+    });
+    if (activeMeeting) {
+      await tx.visitMeeting.update({
+        where: { id: activeMeeting.id },
+        data: { endedAt: now, endedReason: "FORWARDED" },
+      });
+    } else if (visit.meetingStartedAt) {
+      // Preserve the first meeting when forwarding a visit created before meeting tracking.
+      await tx.visitMeeting.create({
+        data: {
+          visitId: forwardRequest.visitId,
+          departmentId: visit.departmentId,
+          hostId: visit.hostId,
+          startedAt: visit.meetingStartedAt,
+          endedAt: now,
+          endedReason: "FORWARDED",
+        },
+      });
+    }
+    const updatedVisit = await tx.visit.update({
       where: { id: forwardRequest.visitId },
       data: {
         departmentId: targetDepartment.id,
@@ -78,13 +100,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     });
     await tx.visitStatusHistory.create({
       data: {
-        visitId: visit.id,
+        visitId: updatedVisit.id,
         status: VisitStatus.WAITING,
         changedByUserId: session.userId,
         note: `Forwarded to ${targetDepartment.name} and assigned to ${host.name}${priority ? ` (priority ${priority})` : ""}`,
       },
     });
-    return visit;
+    return updatedVisit;
   });
   const visitWithDetails = await prisma.visit.findUnique({
     where: { id: updated.id },

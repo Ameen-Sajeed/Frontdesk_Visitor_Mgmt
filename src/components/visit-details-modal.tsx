@@ -2,7 +2,12 @@
 
 import { useState } from "react";
 import { StatusBadge } from "@/components/status-badge";
-import { calculateMeetingDuration, calculateWaitingTime, formatDateTime } from "@/lib/timing";
+import {
+  calculateMeetingBreakdown,
+  calculateMeetingDuration,
+  calculateWaitingTime,
+  formatDateTime,
+} from "@/lib/timing";
 
 interface VisitDetailsModalProps {
   visit: {
@@ -18,6 +23,13 @@ interface VisitDetailsModalProps {
     meetingStartedAt?: Date | string | null;
     checkedOutAt?: Date | string | null;
     leftAt?: Date | string | null;
+    meetings?: {
+      id: string;
+      startedAt: Date | string;
+      endedAt?: Date | string | null;
+      host: { name: string };
+      department: { name: string };
+    }[];
     rejectionReason?: string | null;
     leftReason?: string | null;
     visitor: {
@@ -44,6 +56,7 @@ export function VisitDetailsModal({ visit }: VisitDetailsModalProps) {
 
   const waitingTime = calculateWaitingTime(visit);
   const meetingDuration = calculateMeetingDuration(visit);
+  const meetingBreakdown = calculateMeetingBreakdown(visit);
 
   return (
     <>
@@ -102,9 +115,18 @@ export function VisitDetailsModal({ visit }: VisitDetailsModalProps) {
                   }}
                 >
                   <div style={{ fontSize: "0.75rem", color: "var(--muted, #64748b)" }}>
-                    Meeting Duration
+                    Total Meeting Duration
                   </div>
                   <strong style={{ fontSize: "1.125rem" }}>{meetingDuration}</strong>
+                  {meetingBreakdown.length > 0 && (
+                    <div className="meeting-breakdown" aria-label="Meeting duration by host">
+                      {meetingBreakdown.map((meeting, index) => (
+                        <span key={`${meeting.hostName}-${index}`}>
+                          {meeting.hostName} · {meeting.duration}{meeting.ongoing ? " (ongoing)" : ""}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
