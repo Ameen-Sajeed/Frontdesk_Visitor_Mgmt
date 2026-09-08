@@ -1,5 +1,9 @@
 import { VisitStatus } from "@prisma/client";
-import { getDepartmentsWithHosts, getPaginatedReceptionVisits } from "@/lib/visits";
+import {
+  getDepartmentsWithHosts,
+  getPaginatedReceptionVisits,
+  getWaitingQueuePositions,
+} from "@/lib/visits";
 import { getAuthSession } from "@/lib/auth";
 import { UserNav } from "@/components/user-nav";
 import { RegisterVisitor } from "@/components/register-visitor";
@@ -15,6 +19,12 @@ import { formatDateTime } from "@/lib/timing";
 import { SearchFilter } from "@/components/search-filter";
 import { ExportVisits } from "@/components/export-visits";
 import { TableLoadingIndicator, TableNavigationProvider } from "@/components/table-navigation";
+import { ForwardRequestAssign } from "@/components/forward-requests";
+import { prisma } from "@/lib/prisma";
+import { getVisitDashboardData } from "@/lib/dashboard";
+import { ReceptionInsights } from "@/components/reception-insights";
+import { PriorityBadge } from "@/components/priority-badge";
+import { VisitPrioritySelect } from "@/components/visit-priority-select";
 
 export default async function Dashboard({
   searchParams,
@@ -31,7 +41,7 @@ export default async function Dashboard({
   const { status, search, dateRange, startDate, endDate, page } = await searchParams;
   const pageNum = Number(page) || 1;
 
-  const [session, paginatedData, departments] = await Promise.all([
+  const [session, paginatedData, departments, forwardRequests, dashboardData] = await Promise.all([
     getAuthSession(),
     getPaginatedReceptionVisits({
       status,
@@ -43,9 +53,32 @@ export default async function Dashboard({
       limit: 10,
     }),
     getDepartmentsWithHosts(),
+    prisma.visitForwardRequest.findMany({
+      where: { status: "PENDING" },
+      include: {
+        visit: { include: { visitor: true, department: true, host: true } },
+      },
+      orderBy: { requestedAt: "asc" },
+    }),
+    getVisitDashboardData(),
   ]);
 
   const { visits, totalCount, totalPages } = paginatedData;
+  const queuePositions = await getWaitingQueuePositions(
+    visits.filter((visit) => visit.status === VisitStatus.WAITING).map((visit) => visit.id),
+  );
+  const forwardingRequests = await Promise.all(
+    forwardRequests.map(async (request) => ({
+      ...request,
+      toDepartment: await prisma.department.findUniqueOrThrow({
+        where: { id: request.toDepartmentId },
+        include: { employees: { orderBy: { name: "asc" } } },
+      }),
+    })),
+  );
+  const forwardingByVisit = Object.fromEntries(
+    forwardingRequests.map((request) => [request.visitId, request]),
+  );
 
   const waiting = visits.filter((v) => v.status === VisitStatus.WAITING).length;
   const activeStatuses: VisitStatus[] = [VisitStatus.INSIDE];
@@ -74,6 +107,10 @@ export default async function Dashboard({
             value={visits.filter((v) => v.status === VisitStatus.CHECKED_OUT).length}
           />
         </section>
+        <ReceptionInsights
+          statusData={dashboardData.statusData}
+          dailyData={dashboardData.dailyData}
+        />
 
         <section className="panel">
           <div className="toolbar" style={{ flexWrap: "wrap", gap: 12 }}>
@@ -108,6 +145,7 @@ export default async function Dashboard({
                       <th>Department</th>
                       <th>Host</th>
                       <th>Visit</th>
+                      <th>Queue & priority</th>
                       <th>Status</th>
                       <th>Registered</th>
                       <th>Next step</th>
@@ -142,12 +180,27 @@ export default async function Dashboard({
                           <div className="small">{visit.purpose}</div>
                         </td>
                         <td>
+                          <div className="priority-summary">
+                            {visit.status === VisitStatus.WAITING && queuePositions.has(visit.id) && (
+                              <span className="queue-badge" aria-label={`Queue position ${queuePositions.get(visit.id)}`}>
+                                #{queuePositions.get(visit.id)}
+                              </span>
+                            )}
+                            <PriorityBadge priority={visit.priority} />
+                          </div>
+                        </td>
+                        <td>
                           <StatusBadge status={visit.status} />
+                          {forwardingByVisit[visit.id] && (
+                            <div className="small forward-status">Forwarded to Reception</div>
+                          )}
                         </td>
                         <td>{formatDateTime(visit.registeredAt)}</td>
                         <td>
-                          {visit.status === VisitStatus.WAITING &&
-                          visit.approvalStatus === "APPROVED" ? (
+                          {forwardingByVisit[visit.id] ? (
+                            <ForwardRequestAssign request={forwardingByVisit[visit.id]} />
+                          ) : visit.status === VisitStatus.WAITING &&
+                            visit.approvalStatus === "APPROVED" ? (
                             <VisitActions
                               visitId={visit.id}
                               actions={[
@@ -179,7 +232,16 @@ export default async function Dashboard({
                           )}
                         </td>
                         <td>
-                          <VisitDetailsModal visit={visit} />
+                          <div className="details-actions">
+                            <VisitDetailsModal visit={visit} />
+                            {visit.status === VisitStatus.WAITING && (
+                              <VisitPrioritySelect
+                                visitId={visit.id}
+                                priority={visit.priority}
+                                variant="icon"
+                              />
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}

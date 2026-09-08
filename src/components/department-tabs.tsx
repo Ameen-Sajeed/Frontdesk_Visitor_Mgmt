@@ -4,11 +4,12 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 
 interface DepartmentTabsProps {
-  activeTab: "pending" | "history";
+  activeTab: "pending" | "meetings" | "history";
   pendingCount: number;
+  meetingsCount: number;
 }
 
-export function DepartmentTabs({ activeTab, pendingCount }: DepartmentTabsProps) {
+export function DepartmentTabs({ activeTab, pendingCount, meetingsCount }: DepartmentTabsProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -37,7 +38,8 @@ export function DepartmentTabs({ activeTab, pendingCount }: DepartmentTabsProps)
           fontWeight: 600,
           textDecoration: "none",
           color: activeTab === "pending" ? "var(--primary, #2563eb)" : "var(--muted, #64748b)",
-          borderBottom: activeTab === "pending" ? "2px solid var(--primary, #2563eb)" : "2px solid transparent",
+          borderBottom:
+            activeTab === "pending" ? "2px solid var(--primary, #2563eb)" : "2px solid transparent",
           display: "flex",
           alignItems: "center",
           gap: 6,
@@ -61,6 +63,37 @@ export function DepartmentTabs({ activeTab, pendingCount }: DepartmentTabsProps)
       </Link>
 
       <Link
+        href={createTabUrl("meetings")}
+        style={{
+          padding: "10px 16px",
+          fontSize: "0.875rem",
+          fontWeight: 600,
+          textDecoration: "none",
+          color: activeTab === "meetings" ? "var(--primary, #2563eb)" : "var(--muted, #64748b)",
+          borderBottom:
+            activeTab === "meetings"
+              ? "2px solid var(--primary, #2563eb)"
+              : "2px solid transparent",
+        }}
+      >
+        Meetings
+        {meetingsCount > 0 && (
+          <span
+            style={{
+              backgroundColor: activeTab === "meetings" ? "var(--primary, #2563eb)" : "#94a3b8",
+              color: "#ffffff",
+              fontSize: "0.75rem",
+              padding: "2px 7px",
+              borderRadius: 10,
+              fontWeight: 500,
+              marginLeft: 6,
+            }}
+          >
+            {meetingsCount}
+          </span>
+        )}
+      </Link>
+      <Link
         href={createTabUrl("history")}
         style={{
           padding: "10px 16px",
@@ -68,7 +101,8 @@ export function DepartmentTabs({ activeTab, pendingCount }: DepartmentTabsProps)
           fontWeight: 600,
           textDecoration: "none",
           color: activeTab === "history" ? "var(--primary, #2563eb)" : "var(--muted, #64748b)",
-          borderBottom: activeTab === "history" ? "2px solid var(--primary, #2563eb)" : "2px solid transparent",
+          borderBottom:
+            activeTab === "history" ? "2px solid var(--primary, #2563eb)" : "2px solid transparent",
         }}
       >
         Visitor History

@@ -15,12 +15,12 @@ async function main() {
   );
   const [hr, marketing, ecommerce, accounts] = departments;
   const employees = [
-    ["Aisha Rahman", "aisha@company.test", hr.id, "HR Manager"],
-    ["Omar Khalid", "omar@company.test", marketing.id, "Marketing Lead"],
-    ["Sara Ali", "sara@company.test", ecommerce.id, "E-commerce Specialist"],
-    ["Daniel Joseph", "daniel@company.test", accounts.id, "Senior Accountant"],
+    ["EMP001", "Aisha Rahman", "aisha@company.test", hr.id, "HR Manager"],
+    ["EMP002", "Omar Khalid", "omar@company.test", marketing.id, "Marketing Lead"],
+    ["EMP003", "Sara Ali", "sara@company.test", ecommerce.id, "E-commerce Specialist"],
+    ["EMP004", "Daniel Joseph", "daniel@company.test", accounts.id, "Senior Accountant"],
   ];
-  for (const [name, email, departmentId, designation] of employees) {
+  for (const [employeeId, name, email, departmentId, designation] of employees) {
     await prisma.employee.upsert({
       where: { email },
       update: { designation },
@@ -31,6 +31,7 @@ async function main() {
       where: { email },
       update: { designation, accountStatus: "ACTIVE" },
       create: {
+        employeeId,
         name,
         email,
         password: defaultPasswordHash,
@@ -47,6 +48,7 @@ async function main() {
     where: { email: "reception@company.test" },
     update: { designation: "Receptionist" },
     create: {
+      employeeId: "EMP005",
       name: "Reception Desk",
       email: "reception@company.test",
       password: defaultPasswordHash,
@@ -59,6 +61,7 @@ async function main() {
     where: { email: "admin@company.test" },
     update: { accountStatus: "ACTIVE", role: Role.ADMIN },
     create: {
+      employeeId: "EMP006",
       name: "arriVo Admin",
       email: "admin@company.test",
       password: defaultPasswordHash,
@@ -67,6 +70,14 @@ async function main() {
       accountStatus: "ACTIVE",
     },
   });
+  const employeeIds = await prisma.user.findMany({ select: { employeeId: true } });
+  const highestEmployeeNumber = Math.max(
+    1,
+    ...employeeIds.map((user) => Number(user.employeeId.replace(/^EMP/, "")) || 0),
+  );
+  await prisma.$executeRaw`
+    SELECT setval('"User_employeeId_seq"', ${highestEmployeeNumber}, true)
+  `;
   if (await prisma.visit.count()) return;
   const host = await prisma.employee.findUniqueOrThrow({ where: { email: "aisha@company.test" } });
   const phone = "+971 50 123 4567";

@@ -15,9 +15,12 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
   const visit = await prisma.visit.findUnique({ where: { id }, include: visitInclude });
   if (!visit) return NextResponse.json({ error: "Visit not found." }, { status: 404 });
   if (visit.status !== VisitStatus.WAITING || visit.approvalStatus !== ApprovalStatus.PENDING) {
-    return NextResponse.json({ error: "Only visitors waiting for approval can be alerted." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Only visitors waiting for approval can be alerted." },
+      { status: 400 },
+    );
   }
 
-  broadcastVisitorReminder(visit);
+  await broadcastVisitorReminder(visit);
   return NextResponse.json({ success: true });
 }

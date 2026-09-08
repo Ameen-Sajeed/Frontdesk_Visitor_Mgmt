@@ -12,6 +12,7 @@ interface RealtimeListenerProps {
   user?: {
     userId?: string;
     id?: string;
+    email?: string;
     role: string;
     departmentId?: string | null;
   } | null;
@@ -19,7 +20,7 @@ interface RealtimeListenerProps {
 
 interface ToastNotification {
   id: string;
-  type: "new_visitor" | "status_change" | "delayed";
+  type: "new_visitor" | "status_change" | "priority_change" | "delayed";
   visit: {
     id: string;
     status: string;
@@ -28,7 +29,7 @@ interface ToastNotification {
     departmentId: string;
     visitor: { fullName: string; company?: string | null; phone: string };
     department: { name: string };
-    host: { name: string };
+    host: { name: string; email?: string };
   };
   message: string;
   isReminder?: boolean;
@@ -54,8 +55,6 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
   useEffect(() => {
     if (!user) return;
 
-    const activeUserId = user.userId || user.id;
-
     const socket: Socket = io({
       transports: ["websocket", "polling"],
       reconnectionAttempts: 10,
@@ -64,11 +63,6 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
 
     socket.on("connect", () => {
       window.dispatchEvent(new CustomEvent("arrivo:socket-presence", { detail: "online" }));
-      socket.emit("join", {
-        userId: activeUserId,
-        role: user.role,
-        departmentId: user.departmentId,
-      });
     });
 
     socket.on("disconnect", () => {
@@ -88,7 +82,11 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
 
     // 1. Reception -> Department: New visitor registered
     socket.on("new_visitor_registered", (visit) => {
-      if (user.role === "DEPARTMENT_LEAD" && visit.departmentId === user.departmentId) {
+      if (
+        user.role === "DEPARTMENT_LEAD" &&
+        visit.departmentId === user.departmentId &&
+        visit.host?.email?.toLowerCase() === user.email?.toLowerCase()
+      ) {
         const toastId = `toast_${Date.now()}_${visit.id}`;
         setToasts((prev) => [
           {
@@ -125,6 +123,38 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
       }
 
       // Auto refresh both dashboards in real time
+      router.refresh();
+    });
+
+    socket.on("visit_priority_changed", ({ visit, changedByName, previousPriority }) => {
+      const labels = ["Normal", "Medium", "High"];
+      const previousLabel = labels[previousPriority] || "Normal";
+      const priorityLabel = labels[visit.priority] || "Normal";
+      const toastId = `toast_${Date.now()}_${visit.id}`;
+      setToasts((prev) => [
+        {
+          id: toastId,
+          type: "priority_change",
+          visit,
+          message: `${changedByName} changed ${visit.visitor.fullName}'s priority from ${previousLabel} to ${priorityLabel}.`,
+        },
+        ...prev,
+      ]);
+      router.refresh();
+    });
+
+    socket.on("visit_forward_requested", (forwardRequest) => {
+      if (user.role !== "RECEPTIONIST") return;
+      const toastId = `toast_${Date.now()}_${forwardRequest.id}`;
+      setToasts((prev) => [
+        {
+          id: toastId,
+          type: "status_change",
+          visit: forwardRequest.visit,
+          message: `${forwardRequest.visit.visitor.fullName} was forwarded from ${forwardRequest.fromDepartmentName} to ${forwardRequest.toDepartmentName}. Assign a host and priority.`,
+        },
+        ...prev,
+      ]);
       router.refresh();
     });
 
@@ -227,6 +257,8 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
                       ? "#3b82f6"
                       : toast.type === "delayed"
                         ? "#f59e0b"
+                        : toast.type === "priority_change"
+                          ? "#8b5cf6"
                         : "#10b981",
                   display: "inline-block",
                 }}
@@ -238,6 +270,8 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
                     : "New Visitor Waiting"
                   : toast.type === "delayed"
                     ? "Waiting too long"
+                    : toast.type === "priority_change"
+                      ? "Visitor Priority Updated"
                     : "Visitor Status Updated"}
               </strong>
             </div>
@@ -273,7 +307,8 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
           {toast.type === "new_visitor" && (
             <div style={{ fontSize: "0.75rem", color: "var(--muted, #64748b)" }}>
               Visitor: <strong>{toast.visit.visitor.fullName}</strong>
-              {toast.visit.visitor.company ? ` · ${toast.visit.visitor.company}` : ""} · {toast.visit.visitor.phone}
+              {toast.visit.visitor.company ? ` · ${toast.visit.visitor.company}` : ""} ·{" "}
+              {toast.visit.visitor.phone}
             </div>
           )}
 
@@ -351,13 +386,25 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
       )}
       {confirmation && (
         <ConfirmActionDialog
-          title={confirmation.action === "APPROVE" ? "Approve visitor?" : confirmation.action === "REJECT" ? "Reject visitor?" : "Mark visitor as left?"}
+          title={
+            confirmation.action === "APPROVE"
+              ? "Approve visitor?"
+              : confirmation.action === "REJECT"
+                ? "Reject visitor?"
+                : "Mark visitor as left?"
+          }
           message={
             confirmation.action === "APPROVE"
               ? "Reception will be notified that this visitor is approved."
               : "This visitor's status will be updated."
           }
-          confirmLabel={confirmation.action === "APPROVE" ? "Approve" : confirmation.action === "REJECT" ? "Reject" : "Mark left"}
+          confirmLabel={
+            confirmation.action === "APPROVE"
+              ? "Approve"
+              : confirmation.action === "REJECT"
+                ? "Reject"
+                : "Mark left"
+          }
           danger={confirmation.action !== "APPROVE"}
           loading={actionLoading === confirmation.visitId}
           onCancel={() => setConfirmation(null)}

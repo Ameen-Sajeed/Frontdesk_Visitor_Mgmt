@@ -12,6 +12,31 @@ export const visitInclude = {
 
 export type VisitWithDetails = Prisma.VisitGetPayload<{ include: typeof visitInclude }>;
 
+export async function getWaitingQueuePositions(visitIds: string[]) {
+  if (!visitIds.length) return new Map<string, number>();
+  const departmentIds = await prisma.visit.findMany({
+    where: { id: { in: visitIds } },
+    select: { departmentId: true },
+    distinct: ["departmentId"],
+  });
+  const waitingVisits = await prisma.visit.findMany({
+    where: {
+      departmentId: { in: departmentIds.map((visit) => visit.departmentId) },
+      status: VisitStatus.WAITING,
+    },
+    select: { id: true, departmentId: true },
+    orderBy: [{ departmentId: "asc" }, { priority: "desc" }, { registeredAt: "asc" }],
+  });
+  const positions = new Map<string, number>();
+  const counters = new Map<string, number>();
+  for (const visit of waitingVisits) {
+    const position = (counters.get(visit.departmentId) ?? 0) + 1;
+    counters.set(visit.departmentId, position);
+    positions.set(visit.id, position);
+  }
+  return positions;
+}
+
 export function buildDateWhereClause(
   dateRange?: string,
   startDate?: string,
@@ -112,6 +137,7 @@ export async function getPaginatedReceptionVisits({
 
 export async function getPaginatedDepartmentVisits({
   departmentId,
+  hostId,
   search,
   status,
   dateRange,
@@ -122,6 +148,7 @@ export async function getPaginatedDepartmentVisits({
   limit = 10,
 }: {
   departmentId: string;
+  hostId: string;
   search?: string;
   status?: string;
   dateRange?: string;
@@ -131,7 +158,7 @@ export async function getPaginatedDepartmentVisits({
   page?: number;
   limit?: number;
 }) {
-  const where: Prisma.VisitWhereInput = { departmentId };
+  const where: Prisma.VisitWhereInput = { departmentId, hostId };
 
   if (tab === "pending") {
     where.status = VisitStatus.WAITING;
@@ -156,18 +183,16 @@ export async function getPaginatedDepartmentVisits({
       ],
     };
   }
-
   const [totalCount, visits] = await Promise.all([
     prisma.visit.count({ where }),
     prisma.visit.findMany({
       where,
       include: visitInclude,
-      orderBy: [{ priority: "desc" }, { registeredAt: "desc" }],
+      orderBy: [{ priority: "desc" }, { registeredAt: "asc" }],
       skip: (page - 1) * limit,
       take: limit,
     }),
   ]);
-
   const totalPages = Math.max(1, Math.ceil(totalCount / limit));
 
   return {
@@ -256,6 +281,7 @@ export async function createVisit(input: VisitorRegistration, changedByUserId: s
         status: VisitStatus.WAITING,
         approvalStatus: ApprovalStatus.PENDING,
         approvalAskedAt: new Date(),
+        priority: data.priority,
       },
     });
     await tx.visitStatusHistory.createMany({

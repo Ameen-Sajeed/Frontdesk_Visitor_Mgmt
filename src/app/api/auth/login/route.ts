@@ -5,17 +5,27 @@ import { AUTH_COOKIE_NAME, signToken, verifyPassword } from "@/lib/auth";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { email, password } = body;
+    const { identifier, email, password } = body;
 
-    const trimmedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+    const loginIdentifier =
+      typeof identifier === "string"
+        ? identifier.trim()
+        : typeof email === "string"
+          ? email.trim()
+          : "";
     const trimmedPassword = typeof password === "string" ? password : "";
 
-    if (!trimmedEmail || !trimmedPassword) {
-      return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
+    if (!loginIdentifier || !trimmedPassword) {
+      return NextResponse.json(
+        { error: "Employee ID or email and password are required." },
+        { status: 400 },
+      );
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: trimmedEmail },
+      where: loginIdentifier.includes("@")
+        ? { email: loginIdentifier.toLowerCase() }
+        : { employeeId: loginIdentifier.toUpperCase() },
       include: { department: true },
     });
 

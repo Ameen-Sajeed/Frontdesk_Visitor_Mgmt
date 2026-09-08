@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     });
 
     if (visitWithDetails) {
-      broadcastVisitCreated(visitWithDetails);
+      await broadcastVisitCreated(visitWithDetails);
     }
 
     return NextResponse.json(visitWithDetails || createdVisit, { status: 201 });

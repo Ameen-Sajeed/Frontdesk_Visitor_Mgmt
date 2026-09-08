@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
 import { Loader } from "@/components/loader";
+import { OperationsChart } from "@/components/operations-chart";
 
 type User = {
   id: string;
+  employeeId: string;
   name: string;
   email: string;
   role: string;
@@ -14,27 +16,67 @@ type User = {
   departmentName?: string | null;
 };
 type Department = { id: string; name: string; _count: { users: number; employees: number } };
+type ChartItem = { label: string; value: number };
+type ResponseMetric = {
+  label: string;
+  averageMinutes: number;
+  decisions: number;
+  rejected: number;
+};
 
 export function AdminWorkspace({
   initialUsers,
   initialDepartments,
   waitThreshold,
+  usersByDepartment,
+  userAccessSummary,
+  responseMetrics,
 }: {
   initialUsers: User[];
   initialDepartments: Department[];
   waitThreshold: string;
+  usersByDepartment: ChartItem[];
+  userAccessSummary: ChartItem[];
+  responseMetrics: ResponseMetric[];
 }) {
-  const [tab, setTab] = useState<"users" | "departments" | "settings">("users");
+  const [tab, setTab] = useState<"dashboard" | "users" | "departments" | "settings">("users");
   const [users, setUsers] = useState(initialUsers);
   const [departments, setDepartments] = useState(initialDepartments);
   const [departmentName, setDepartmentName] = useState("");
   const [minutes, setMinutes] = useState(waitThreshold);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [createUserOpen, setCreateUserOpen] = useState(false);
+  const [createUserError, setCreateUserError] = useState("");
+  const [createdEmployeeId, setCreatedEmployeeId] = useState<string | null>(null);
+  const [newUser, setNewUser] = useState({
+    name: "",
+    email: "",
+    password: "",
+    role: "RECEPTIONIST",
+    departmentId: "",
+    designation: "",
+  });
   const [pendingUserUpdate, setPendingUserUpdate] = useState<{
     user: User;
     accountStatus: string;
   } | null>(null);
+  function resetCreateUser() {
+    setNewUser({
+      name: "",
+      email: "",
+      password: "",
+      role: "RECEPTIONIST",
+      departmentId: "",
+      designation: "",
+    });
+    setCreateUserError("");
+    setCreatedEmployeeId(null);
+  }
+  function closeCreateUser() {
+    setCreateUserOpen(false);
+    resetCreateUser();
+  }
   async function updateUser(userId: string, accountStatus: string) {
     setSaving(true);
     setMessage("");
@@ -50,6 +92,41 @@ export function AdminWorkspace({
       );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not update user.");
+    } finally {
+      setSaving(false);
+    }
+  }
+  async function createUser(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true);
+    setCreateUserError("");
+    try {
+      const response = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newUser),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      setUsers((all) => [
+        {
+          ...data,
+          departmentName:
+            departments.find((department) => department.id === data.departmentId)?.name ?? null,
+        },
+        ...all,
+      ]);
+      setNewUser({
+        name: "",
+        email: "",
+        password: "",
+        role: "RECEPTIONIST",
+        departmentId: "",
+        designation: "",
+      });
+      setCreatedEmployeeId(data.employeeId);
+    } catch (error) {
+      setCreateUserError(error instanceof Error ? error.message : "Could not create user.");
     } finally {
       setSaving(false);
     }
@@ -99,7 +176,7 @@ export function AdminWorkspace({
   return (
     <section className="panel admin-panel">
       <div className="admin-tabs">
-        {(["users", "departments", "settings"] as const).map((item) => (
+        {(["dashboard", "users", "departments", "settings"] as const).map((item) => (
           <button
             key={item}
             type="button"
@@ -114,60 +191,114 @@ export function AdminWorkspace({
         ))}
       </div>
       {message && <p className="admin-message">{message}</p>}
+      {tab === "dashboard" && (
+        <div className="admin-content">
+          <div className="toolbar">
+            <div>
+              <h2>Department insights</h2>
+              <p className="small">A department-level view of user access and visitor responses.</p>
+            </div>
+          </div>
+          <section className="operations-dashboard admin-dashboard-charts">
+            <OperationsChart title="Users by department" data={usersByDepartment} />
+            <OperationsChart title="User access" data={userAccessSummary} />
+            <OperationsChart
+              title="Average approval time by department"
+              data={responseMetrics.map((metric) => ({
+                label: metric.label,
+                value: metric.averageMinutes,
+              }))}
+              formatValue={(minutes) => `${minutes}m`}
+            />
+            <OperationsChart
+              title="Approval decisions by department"
+              data={responseMetrics.map((metric) => ({
+                label: metric.label,
+                value: metric.decisions,
+              }))}
+            />
+            <OperationsChart
+              title="Rejected requests by department"
+              data={responseMetrics.map((metric) => ({
+                label: metric.label,
+                value: metric.rejected,
+              }))}
+            />
+          </section>
+        </div>
+      )}
       {tab === "users" && (
-        <div className="table-scroll" tabIndex={0}>
-          <table>
-            <thead>
-              <tr>
-                <th>User</th>
-                <th>Role</th>
-                <th>Department</th>
-                <th>Access</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((user) => (
-                <tr key={user.id}>
-                  <td>
-                    <div className="visitor">{user.name}</div>
-                    <div className="small">{user.email}</div>
-                  </td>
-                  <td>{user.role.replaceAll("_", " ")}</td>
-                  <td>{user.departmentName ?? "—"}</td>
-                  <td>
-                    <span
-                      className={`badge ${user.accountStatus === "ACTIVE" ? "approved" : user.accountStatus === "BLOCKED" ? "rejected" : "waiting"}`}
-                    >
-                      {user.accountStatus.toLowerCase()}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="actions">
-                      {user.accountStatus !== "ACTIVE" && (
-                        <button
-                          className="primary"
-                          disabled={saving}
-                          onClick={() => setPendingUserUpdate({ user, accountStatus: "ACTIVE" })}
-                        >
-                          Approve
-                        </button>
-                      )}
-                      {user.accountStatus !== "BLOCKED" && (
-                        <button
-                          className="danger"
-                          disabled={saving}
-                          onClick={() => setPendingUserUpdate({ user, accountStatus: "BLOCKED" })}
-                        >
-                          Block
-                        </button>
-                      )}
-                    </div>
-                  </td>
+        <div className="admin-content">
+          <div className="toolbar admin-user-toolbar">
+            <h2>Users ({users.length})</h2>
+            <button className="primary" type="button" onClick={() => setCreateUserOpen(true)}>
+              + Create user
+            </button>
+          </div>
+          <div className="table-scroll" tabIndex={0}>
+            <table>
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Employee ID</th>
+                  <th>Role</th>
+                  <th>Department</th>
+                  <th>Access</th>
+                  <th>Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {users.map(
+                  (user) => (
+                    (
+                      <tr key={user.id}>
+                        <td>
+                          <div className="visitor">{user.name}</div>
+                          <div className="small">{user.email}</div>
+                        </td>
+                        <td>{user.employeeId}</td>
+                        <td>{user.designation}</td>
+                        <td>{user.departmentName ?? "—"}</td>
+                        <td>
+                          <span
+                            className={`badge ${user.accountStatus === "ACTIVE" ? "approved" : user.accountStatus === "BLOCKED" ? "rejected" : "waiting"}`}
+                          >
+                            {user.accountStatus.toLowerCase()}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="actions">
+                            {user.accountStatus !== "ACTIVE" && (
+                              <button
+                                className="primary"
+                                disabled={saving}
+                                onClick={() =>
+                                  setPendingUserUpdate({ user, accountStatus: "ACTIVE" })
+                                }
+                              >
+                                Approve
+                              </button>
+                            )}
+                            {user.accountStatus !== "BLOCKED" && (
+                              <button
+                                className="danger"
+                                disabled={saving}
+                                onClick={() =>
+                                  setPendingUserUpdate({ user, accountStatus: "BLOCKED" })
+                                }
+                              >
+                                Block
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  ),
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
       {tab === "departments" && (
@@ -232,6 +363,144 @@ export function AdminWorkspace({
             setPendingUserUpdate(null);
           }}
         />
+      )}
+      {createUserOpen && (
+        <div className="overlay" role="dialog" aria-modal="true" aria-label="Create user">
+          <div className="modal admin-user-modal">
+            <div className="modal-head">
+              <div>
+                <h2>{createdEmployeeId ? "User created" : "Create user"}</h2>
+                <p className="small">
+                  {createdEmployeeId
+                    ? "Share the employee ID below so the user can sign in."
+                    : "New accounts are active immediately."}
+                </p>
+              </div>
+              <button
+                className="icon-button"
+                type="button"
+                onClick={closeCreateUser}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+            {createdEmployeeId ? (
+              <div className="form admin-user-created">
+                <span className="small">Employee ID</span>
+                <strong> : {createdEmployeeId}</strong>
+                <div className="form-actions">
+                  <button className="primary" type="button" onClick={closeCreateUser}>
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form className="form" onSubmit={createUser} noValidate>
+                {createUserError && <p className="error">{createUserError}</p>}
+                <div className="grid">
+                  <label className="field">
+                    <span className="small">Full name</span>
+                    <input
+                      value={newUser.name}
+                      onChange={(event) =>
+                        setNewUser((user) => ({ ...user, name: event.target.value }))
+                      }
+                      required
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="small">Work email</span>
+                    <input
+                      type="email"
+                      value={newUser.email}
+                      onChange={(event) =>
+                        setNewUser((user) => ({ ...user, email: event.target.value }))
+                      }
+                      required
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="small">Temporary password</span>
+                    <input
+                      type="password"
+                      value={newUser.password}
+                      onChange={(event) =>
+                        setNewUser((user) => ({ ...user, password: event.target.value }))
+                      }
+                      minLength={6}
+                      required
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="small">Role</span>
+                    <select
+                      className="small"
+                      value={newUser.role}
+                      onChange={(event) =>
+                        setNewUser((user) => ({
+                          ...user,
+                          role: event.target.value,
+                          departmentId:
+                            event.target.value === "DEPARTMENT_LEAD" ? user.departmentId : "",
+                        }))
+                      }
+                    >
+                      <option className="small" value="RECEPTIONIST">
+                        Receptionist
+                      </option>
+                      <option value="DEPARTMENT_LEAD">Department user</option>
+                      <option value="ADMIN">Admin</option>
+                    </select>
+                  </label>
+                  {newUser.role === "DEPARTMENT_LEAD" && (
+                    <label className="field">
+                      <span className="small">Department</span>
+                      <select
+                        value={newUser.departmentId}
+                        onChange={(event) =>
+                          setNewUser((user) => ({ ...user, departmentId: event.target.value }))
+                        }
+                        required
+                      >
+                        <option value="">Select department</option>
+                        {departments.map((department) => (
+                          <option key={department.id} value={department.id}>
+                            {department.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                  <label className="field">
+                    <span className="small">
+                      Designation <small>(optional)</small>
+                    </span>
+                    <input
+                      value={newUser.designation}
+                      onChange={(event) =>
+                        setNewUser((user) => ({ ...user, designation: event.target.value }))
+                      }
+                    />
+                  </label>
+                </div>
+                <div className="form-actions">
+                  <button
+                    className="secondary"
+                    type="button"
+                    onClick={closeCreateUser}
+                    disabled={saving}
+                  >
+                    Cancel
+                  </button>
+                  <button className="primary" disabled={saving}>
+                    {saving ? <Loader label="Creating" /> : "Create user"}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
       )}
     </section>
   );
