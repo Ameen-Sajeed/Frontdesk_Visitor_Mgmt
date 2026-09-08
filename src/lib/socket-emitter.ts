@@ -42,6 +42,18 @@ export async function broadcastVisitStatusChanged(visitData: any) {
   if (g.io && ownerUserId) g.io.to(`user_${ownerUserId}`).emit("visit_status_changed", visitData);
 }
 
+export async function broadcastVisitPriorityChanged(
+  visitData: any,
+  changedByName: string,
+  previousPriority: number,
+) {
+  const g = global as any;
+  const ownerUserId = await getVisitOwnerUserId(visitData);
+  const payload = { visit: visitData, changedByName, previousPriority };
+  if (g.io) g.io.to("reception").emit("visit_priority_changed", payload);
+  if (g.io && ownerUserId) g.io.to(`user_${ownerUserId}`).emit("visit_priority_changed", payload);
+}
+
 export function broadcastVisitForwardRequested(forwardRequest: any) {
   const g = global as any;
   if (g.io) g.io.to("reception").emit("visit_forward_requested", forwardRequest);

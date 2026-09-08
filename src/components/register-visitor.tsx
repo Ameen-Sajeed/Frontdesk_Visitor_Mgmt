@@ -38,6 +38,7 @@ const initialValues: FormValues = {
   departmentId: "",
   hostId: "",
   type: "WALK_IN",
+  priority: "0",
 };
 
 export function RegisterVisitor({ departments }: { departments: Department[] }) {
@@ -416,6 +417,17 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
                       {employee.name} {employee.designation ? `(${employee.designation})` : ""}
                     </option>
                   ))}
+                </SelectField>
+                <SelectField
+                  label="Initial priority"
+                  name="priority"
+                  value={values.priority}
+                  error={fieldErrors.priority}
+                  onChange={(val) => updateField("priority", val)}
+                >
+                  <option value="0">Normal</option>
+                  <option value="1">Medium</option>
+                  <option value="2">High</option>
                 </SelectField>
                 {selectedHost && (
                   <HostAvailability

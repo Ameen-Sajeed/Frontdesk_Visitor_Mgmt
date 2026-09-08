@@ -2,14 +2,15 @@ import { NextResponse } from "next/server";
 import { ApprovalStatus, VisitStatus } from "@prisma/client";
 import { changeVisitStatus, decideVisit, visitInclude } from "@/lib/visits";
 import { prisma } from "@/lib/prisma";
-import { broadcastVisitStatusChanged } from "@/lib/socket-emitter";
+import { broadcastVisitPriorityChanged, broadcastVisitStatusChanged } from "@/lib/socket-emitter";
 import { getAuthSession } from "@/lib/auth";
+import { isVisitPriority, priorityLabel } from "@/lib/priority";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const { status, action, rejectionReason, leftReason } = body;
+    const { status, action, rejectionReason, leftReason, priority } = body;
     const session = await getAuthSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const current = await prisma.visit.findUnique({
@@ -17,17 +18,31 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       select: {
         departmentId: true,
         status: true,
+        priority: true,
         approvalStatus: true,
         host: { select: { email: true } },
       },
     });
     if (!current) return NextResponse.json({ error: "Visit not found." }, { status: 404 });
     const departmentAction = action === "APPROVE" || action === "REJECT";
-    if (departmentAction) {
+    const priorityAction = priority !== undefined;
+    const isAssignedDepartmentLead =
+      session.role === "DEPARTMENT_LEAD" &&
+      session.departmentId === current.departmentId &&
+      session.email === current.host.email;
+    if (priorityAction) {
       if (
-        session.role !== "DEPARTMENT_LEAD" ||
-        session.departmentId !== current.departmentId ||
-        session.email !== current.host.email
+        current.status !== VisitStatus.WAITING ||
+        (!isAssignedDepartmentLead && session.role !== "RECEPTIONIST")
+      ) {
+        return NextResponse.json({ error: "You cannot change this visitor's priority." }, { status: 403 });
+      }
+      if (!isVisitPriority(priority)) {
+        return NextResponse.json({ error: "Priority must be Normal, Medium, or High." }, { status: 400 });
+      }
+    } else if (departmentAction) {
+      if (
+        !isAssignedDepartmentLead
       ) {
         return NextResponse.json({ error: "You cannot decide this visit." }, { status: 403 });
       }
@@ -46,7 +61,20 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     let updatedVisit;
-    if (departmentAction) {
+    if (priorityAction) {
+      updatedVisit = await prisma.$transaction(async (tx) => {
+        const visit = await tx.visit.update({ where: { id }, data: { priority } });
+        await tx.visitStatusHistory.create({
+          data: {
+            visitId: id,
+            status: visit.status,
+            changedByUserId: session.userId,
+            note: `Priority changed to ${priorityLabel(priority)}`,
+          },
+        });
+        return visit;
+      });
+    } else if (departmentAction) {
       updatedVisit = await decideVisit(
         id,
         action === "APPROVE" ? ApprovalStatus.APPROVED : ApprovalStatus.REJECTED,
@@ -70,7 +98,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     });
 
     if (visitWithDetails) {
-      await broadcastVisitStatusChanged(visitWithDetails);
+      if (priorityAction) {
+        await broadcastVisitPriorityChanged(visitWithDetails, session.name, current.priority);
+      } else {
+        await broadcastVisitStatusChanged(visitWithDetails);
+      }
     }
 
     return NextResponse.json(visitWithDetails || updatedVisit);

@@ -17,7 +17,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const body = await request.json();
   const hostId = typeof body.hostId === "string" ? body.hostId : "";
   const priority =
-    Number.isInteger(body.priority) && body.priority >= 0 && body.priority <= 9 ? body.priority : 0;
+    Number.isInteger(body.priority) && body.priority >= 0 && body.priority <= 2 ? body.priority : 0;
   if (!hostId)
     return NextResponse.json(
       { error: "Choose a host for this forwarded visitor." },

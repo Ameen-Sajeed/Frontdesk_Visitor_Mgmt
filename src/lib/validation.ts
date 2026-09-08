@@ -10,6 +10,7 @@ export const visitorRegistrationSchema = z.object({
   departmentId: z.string().min(1, "Choose a department"),
   hostId: z.string().min(1, "Choose a host"),
   type: z.enum(["APPOINTMENT", "WALK_IN"]),
+  priority: z.coerce.number().int().min(0).max(2),
 });
 
 export type VisitorRegistration = z.infer<typeof visitorRegistrationSchema>;

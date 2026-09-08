@@ -1,5 +1,9 @@
 import { VisitStatus } from "@prisma/client";
-import { getDepartmentsWithHosts, getPaginatedReceptionVisits } from "@/lib/visits";
+import {
+  getDepartmentsWithHosts,
+  getPaginatedReceptionVisits,
+  getWaitingQueuePositions,
+} from "@/lib/visits";
 import { getAuthSession } from "@/lib/auth";
 import { UserNav } from "@/components/user-nav";
 import { RegisterVisitor } from "@/components/register-visitor";
@@ -19,6 +23,8 @@ import { ForwardRequestAssign } from "@/components/forward-requests";
 import { prisma } from "@/lib/prisma";
 import { getVisitDashboardData } from "@/lib/dashboard";
 import { ReceptionInsights } from "@/components/reception-insights";
+import { PriorityBadge } from "@/components/priority-badge";
+import { VisitPrioritySelect } from "@/components/visit-priority-select";
 
 export default async function Dashboard({
   searchParams,
@@ -58,6 +64,9 @@ export default async function Dashboard({
   ]);
 
   const { visits, totalCount, totalPages } = paginatedData;
+  const queuePositions = await getWaitingQueuePositions(
+    visits.filter((visit) => visit.status === VisitStatus.WAITING).map((visit) => visit.id),
+  );
   const forwardingRequests = await Promise.all(
     forwardRequests.map(async (request) => ({
       ...request,
@@ -136,6 +145,7 @@ export default async function Dashboard({
                       <th>Department</th>
                       <th>Host</th>
                       <th>Visit</th>
+                      <th>Queue & priority</th>
                       <th>Status</th>
                       <th>Registered</th>
                       <th>Next step</th>
@@ -168,6 +178,16 @@ export default async function Dashboard({
                         <td>
                           {visit.type === "WALK_IN" ? "Walk-in" : "Appointment"}
                           <div className="small">{visit.purpose}</div>
+                        </td>
+                        <td>
+                          <div className="priority-summary">
+                            {visit.status === VisitStatus.WAITING && queuePositions.has(visit.id) && (
+                              <span className="queue-badge" aria-label={`Queue position ${queuePositions.get(visit.id)}`}>
+                                #{queuePositions.get(visit.id)}
+                              </span>
+                            )}
+                            <PriorityBadge priority={visit.priority} />
+                          </div>
                         </td>
                         <td>
                           <StatusBadge status={visit.status} />
@@ -212,7 +232,16 @@ export default async function Dashboard({
                           )}
                         </td>
                         <td>
-                          <VisitDetailsModal visit={visit} />
+                          <div className="details-actions">
+                            <VisitDetailsModal visit={visit} />
+                            {visit.status === VisitStatus.WAITING && (
+                              <VisitPrioritySelect
+                                visitId={visit.id}
+                                priority={visit.priority}
+                                variant="icon"
+                              />
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}

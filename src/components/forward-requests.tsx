@@ -97,8 +97,8 @@ export function ForwardRequestAssign({ request }: { request: ForwardRequest }) {
                   onChange={(event) => setPriority(event.target.value)}
                 >
                   <option value="0">Normal</option>
-                  <option value="1">High</option>
-                  <option value="2">Urgent</option>
+                  <option value="1">Medium</option>
+                  <option value="2">High</option>
                 </select>
               </label>
               <div className="reason-actions">

@@ -1,7 +1,7 @@
 import { VisitStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getAuthSession } from "@/lib/auth";
-import { getPaginatedDepartmentVisits } from "@/lib/visits";
+import { getPaginatedDepartmentVisits, getWaitingQueuePositions } from "@/lib/visits";
 import { UserNav } from "@/components/user-nav";
 import { StatusBadge } from "@/components/status-badge";
 import { VisitActions } from "@/components/visit-actions";
@@ -18,6 +18,8 @@ import { ExportVisits } from "@/components/export-visits";
 import { TableLoadingIndicator, TableNavigationProvider } from "@/components/table-navigation";
 import { getDepartmentResponseMetrics, getVisitDashboardData } from "@/lib/dashboard";
 import { DepartmentInsights } from "@/components/department-insights";
+import { PriorityBadge } from "@/components/priority-badge";
+import { VisitPrioritySelect } from "@/components/visit-priority-select";
 
 export default async function DepartmentQueue({
   searchParams,
@@ -83,6 +85,9 @@ export default async function DepartmentQueue({
       : { visits: [], totalCount: 0, page: 1, totalPages: 1, limit: 10 };
 
   const { visits, totalCount, totalPages } = paginatedData;
+  const queuePositions = await getWaitingQueuePositions(
+    visits.filter((visit) => visit.status === VisitStatus.WAITING).map((visit) => visit.id),
+  );
   const [meetings, forwardDestinations, dashboardData, responseMetrics] = currentHost
     ? await Promise.all([
         prisma.visit.findMany({
@@ -174,6 +179,15 @@ export default async function DepartmentQueue({
                             {visit.purpose} · Requested{" "}
                             {formatDateTime(visit.approvalAskedAt || visit.registeredAt)}
                           </p>
+                          <div className="priority-summary queue-priority-summary">
+                          <VisitPrioritySelect visitId={visit.id} priority={visit.priority} />
+                            {queuePositions.has(visit.id) && (
+                              <span className="queue-badge" aria-label={`Queue position ${queuePositions.get(visit.id)}`}>
+                                #{queuePositions.get(visit.id)}
+                              </span>
+                            )}
+                            <PriorityBadge priority={visit.priority} />
+                          </div>
                         </div>
 
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>

@@ -20,7 +20,7 @@ interface RealtimeListenerProps {
 
 interface ToastNotification {
   id: string;
-  type: "new_visitor" | "status_change" | "delayed";
+  type: "new_visitor" | "status_change" | "priority_change" | "delayed";
   visit: {
     id: string;
     status: string;
@@ -123,6 +123,23 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
       }
 
       // Auto refresh both dashboards in real time
+      router.refresh();
+    });
+
+    socket.on("visit_priority_changed", ({ visit, changedByName, previousPriority }) => {
+      const labels = ["Normal", "Medium", "High"];
+      const previousLabel = labels[previousPriority] || "Normal";
+      const priorityLabel = labels[visit.priority] || "Normal";
+      const toastId = `toast_${Date.now()}_${visit.id}`;
+      setToasts((prev) => [
+        {
+          id: toastId,
+          type: "priority_change",
+          visit,
+          message: `${changedByName} changed ${visit.visitor.fullName}'s priority from ${previousLabel} to ${priorityLabel}.`,
+        },
+        ...prev,
+      ]);
       router.refresh();
     });
 
@@ -240,6 +257,8 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
                       ? "#3b82f6"
                       : toast.type === "delayed"
                         ? "#f59e0b"
+                        : toast.type === "priority_change"
+                          ? "#8b5cf6"
                         : "#10b981",
                   display: "inline-block",
                 }}
@@ -251,6 +270,8 @@ export function RealtimeListener({ user }: RealtimeListenerProps) {
                     : "New Visitor Waiting"
                   : toast.type === "delayed"
                     ? "Waiting too long"
+                    : toast.type === "priority_change"
+                      ? "Visitor Priority Updated"
                     : "Visitor Status Updated"}
               </strong>
             </div>
