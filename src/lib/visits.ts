@@ -12,6 +12,13 @@ export const visitInclude = {
 
 export type VisitWithDetails = Prisma.VisitGetPayload<{ include: typeof visitInclude }>;
 
+export class ActiveVisitConflictError extends Error {
+  constructor(public activeVisit: VisitWithDetails) {
+    super("This visitor already has an active visit.");
+    this.name = "ActiveVisitConflictError";
+  }
+}
+
 export async function getWaitingQueuePositions(visitIds: string[]) {
   if (!visitIds.length) return new Map<string, number>();
   const departmentIds = await prisma.visit.findMany({
@@ -270,6 +277,16 @@ export async function createVisit(input: VisitorRegistration, changedByUserId: s
         },
       });
     }
+
+    const activeVisit = await tx.visit.findFirst({
+      where: {
+        visitorId: visitor.id,
+        status: { in: [VisitStatus.WAITING, VisitStatus.INSIDE] },
+      },
+      include: visitInclude,
+      orderBy: { registeredAt: "asc" },
+    });
+    if (activeVisit) throw new ActiveVisitConflictError(activeVisit);
 
     const visit = await tx.visit.create({
       data: {

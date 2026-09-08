@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { visitorRegistrationSchema } from "@/lib/validation";
 import { Loader } from "@/components/loader";
 import { useTableNavigation } from "@/components/table-navigation";
+import { ActiveVisitModal, type ActiveVisit } from "@/components/active-visit-modal";
 
 type Department = {
   id: string;
@@ -53,6 +54,7 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
   const [activeMatch, setActiveMatch] = useState(-1);
   const [returningVisitor, setReturningVisitor] = useState(false);
   const [detailsConfirmed, setDetailsConfirmed] = useState(false);
+  const [activeVisit, setActiveVisit] = useState<ActiveVisit | null>(null);
   const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
   const [availabilityUpdates, setAvailabilityUpdates] = useState<
     Record<
@@ -179,6 +181,7 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
     setError("");
     setReturningVisitor(false);
     setDetailsConfirmed(false);
+    setActiveVisit(null);
   }
   function clearFieldError(name: string) {
     setFieldErrors((current) => {
@@ -239,6 +242,10 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
         body: JSON.stringify(values),
       });
       const result = await response.json();
+      if (response.status === 409 && result.activeVisit) {
+        setActiveVisit(result.activeVisit as ActiveVisit);
+        return;
+      }
       if (!response.ok) throw new Error(result.error);
       resetModal();
       refresh();
@@ -467,6 +474,17 @@ export function RegisterVisitor({ departments }: { departments: Department[] }) 
             </form>
           </div>
         </div>
+      )}
+      {activeVisit && (
+        <ActiveVisitModal
+          visit={activeVisit}
+          onClose={() => setActiveVisit(null)}
+          onResolved={() => {
+            setActiveVisit(null);
+            setError("The previous visit was closed. You can now register this visitor again.");
+            refresh();
+          }}
+        />
       )}
     </>
   );

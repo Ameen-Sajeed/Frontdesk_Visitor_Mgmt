@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createVisit, visitInclude } from "@/lib/visits";
+import { ActiveVisitConflictError, createVisit, visitInclude } from "@/lib/visits";
 import { prisma } from "@/lib/prisma";
 import { broadcastVisitCreated } from "@/lib/socket-emitter";
 import { getAuthSession } from "@/lib/auth";
@@ -24,6 +24,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json(visitWithDetails || createdVisit, { status: 201 });
   } catch (error) {
+    if (error instanceof ActiveVisitConflictError) {
+      return NextResponse.json(
+        { error: error.message, activeVisit: error.activeVisit },
+        { status: 409 },
+      );
+    }
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to register visitor." },
       { status: 400 },
